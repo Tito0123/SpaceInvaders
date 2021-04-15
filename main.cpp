@@ -70,9 +70,10 @@ uLCD_4DGL uLCD(p28,p27,p29); // LCD (serial tx, serial rx, reset pin;)
 AnalogOut DACout(p18);      // speaker
 wave_player waver(&DACout); // wav player
 SDFileSystem sd(p5, p6, p7, p8, "sd"); // SD card and filesystem (mosi, miso, sck, cs)
-Nav_Switch myNav(p13, p10, p11, p9, p12); //pin order on Sparkfun breakout
+Nav_Switch myNav(p16, p10, p11, p9, p12); //pin order on Sparkfun breakout. move U from p13 to p16 so we can use another Serial to communicate with mbed
 DigitalIn pb(p15); // push button for player misisle fire
-
+Serial pc(USBTX, USBRX);
+Serial secondMbed(p13, p14);
 // Initialize all global enemy objects
 enemy_t enemy_1;
 enemy_t enemy_2;
@@ -91,17 +92,19 @@ enemy_t enemy_14;
 enemy_t enemy_15;
 
 // Initialize variables
-int numOfEnemies = 0;
-int ENEMY_MOVE = 1; 
-int MOVE_DOWN = 0;
-int DIRECTION = 1;
-int firing_col = 0;
-int hit_player = 0;
-bool lose = false;
-int lives = 3;
-bool game_menu = false;
-bool begin_game = false;
-bool gameover = false;
+// Brice added "volatile" here to protect global variables.
+volatile int numOfEnemies = 0;
+volatile int ENEMY_MOVE = 1; 
+volatile int MOVE_DOWN = 0;
+volatile int DIRECTION = 1;
+volatile int firing_col = 0;
+volatile int hit_player = 0;
+volatile bool lose = false;
+volatile int lives = 3;
+volatile bool game_menu = false;
+volatile bool begin_game = false;
+volatile bool gameover = false;
+volatile int numPlayers = 1;
 
 // Initialize global player object
 player_t player;
@@ -403,8 +406,8 @@ void playstart(void const *args)//Th
         // plays intro music during menu screen
         while(game_menu)
         {
-            wave_file=fopen("/sd/wavfiles/spacey_sound.wav","r");
-                
+            wave_file=fopen("/sd/wavfiles/futureEdit2.wav","r");
+            if(wave_file==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
             waver.play(wave_file);
             fclose(wave_file);
         }
@@ -415,8 +418,8 @@ void playstart(void const *args)//Th
             // play firing sound when the player fires
             if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
  
-                wave_file=fopen("/sd/wavfiles/4.wav","r");
- 
+                wave_file=fopen("/sd/wavfiles/laserEdit.wav","r");
+                if(wave_file==NULL) pc.printf("laser file open error!\n\n\r"); // added this for open error check
  
                 waver.play(wave_file);
                 fclose(wave_file);
@@ -425,8 +428,8 @@ void playstart(void const *args)//Th
             // if player hit, play hit sound
             if (hit_player)
             {
-                wave_file=fopen("/sd/wavfiles/1.wav","r");
-                
+                wave_file=fopen("/sd/wavfiles/bigExplosionEdit2.wav","r");
+                if(wave_file==NULL) pc.printf("explosion file open error!\n\n\r"); // added this for open error check
                 waver.play(wave_file);
                 fclose(wave_file);
             }
@@ -435,8 +438,8 @@ void playstart(void const *args)//Th
         // players gameover voice if player loses
         while(gameover)
         {
-            wave_file=fopen("/sd/wavfiles/game_over.wav","r");
-            
+            wave_file=fopen("/sd/wavfiles/comicalgameoverEdit.wav","r");
+            if(wave_file==NULL) pc.printf("gameover file open error!\n\n\r"); // added this for open error check
             waver.play(wave_file);
             fclose(wave_file);
         }
@@ -459,7 +462,9 @@ int main() {
     int start_label_x_pos = 7; // start label x-pos
     int start_label_y_pos = 7; // start label y-pos
     int level_cursor_x_pos = 5; // level cursor x-position
-    int level_cursor_y_pos = 7; // level cursor y-position
+    int level_cursor_y_pos_start = 7; // level cursor y-position
+    //int level_cursor_y_pos = 7; // initial level_cursor_y_pos @ start -- Added by Brice for more menu options
+    int level_cursor_y_pos_end = 8; // BOTTOM CURSOR POS -- Added by Brice for more menu options
     int gameover_x_pos = 5; // gameover label x-position
     int gameover_y_pos = 5; // gameover label y-position
     int win_x_pos = 2; // congratulations label x-position
@@ -471,6 +476,8 @@ int main() {
     int temp = 0;
     int score = 0;
      
+    // Additional globals added for two-player and one-player capabilities (by Brice)
+    
     // Begin game loop
     while(1)
     {
@@ -483,12 +490,23 @@ int main() {
         lose = false; // default to not lose
         lives = 3; // defaults to 3 lives
         score = 0; // default to score of 0
-
+        int level_cursor_y_pos = 7; // initial level_cursor_y_pos @ start -- Added by Brice for more menu options
         uLCD.cls();
-        
+        // Brice moved this out of the loop since it shouldn't change 
+        //uLCD.locate(title_x_pos,title_y_pos); // "SPACE INVADERS" title position
+        //uLCD.printf("SPACE INVADERS"); // Title
         // Implementation of Game Menu
         while(game_menu) 
         {
+            // Brice added this in order to move the cursor through the menu options
+            uLCD.locate(level_cursor_x_pos, level_cursor_y_pos);
+            uLCD.printf("  ");
+            if (myNav.down() && level_cursor_y_pos < level_cursor_y_pos_end) {
+                level_cursor_y_pos += 1;
+            } else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
+                level_cursor_y_pos -= 1;
+            }
+            // end of movable cursor
             uLCD.locate(level_cursor_x_pos,level_cursor_y_pos); // draws cursor next to "START" label
             uLCD.printf("->");
             
@@ -496,12 +514,19 @@ int main() {
             uLCD.printf("SPACE INVADERS"); // Title
             
             uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position
-            uLCD.printf("START");
-
+            uLCD.printf("ONE-PLAYER");
+            
+            uLCD.locate(start_label_x_pos,start_label_y_pos + 1);
+            uLCD.printf("TWO-PLAYER");
             // if pushbutton is pressed, game menu is exited and game begins
             if(!pb) 
             { 
                 game_menu = false;
+                if (level_cursor_y_pos == start_label_y_pos) {
+                    numPlayers = 1;
+                } else if (level_cursor_y_pos == start_label_y_pos + 1) {
+                    numPlayers = 2;
+                }
                 wait(0.5);
             }
         }
