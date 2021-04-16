@@ -111,7 +111,7 @@ volatile bool begin_game2 = false;
 volatile int numWins = 0;
 volatile bool two_player_win = false;
 volatile bool two_player_lose = false;
-Mutex mbed;
+Mutex mbedLock;
 
 // Initialize global player object
 player_t player;
@@ -459,9 +459,9 @@ void mbedSend(void const *args) {
         while(numPlayers == 1) Thread::yield(); // with one player, thread is unneeded and should yield.
         while(!first_player_ready || !second_player_ready) { // while either player isn't ready, send a start code, and become ready
         //if (!first_player_ready || !second_player_ready) {
-            mbed.lock();
+            mbedLock.lock();
             secondMbed.putc('S');
-            mbed.unlock();
+            mbedLock.unlock();
             first_player_ready = true;
             //pc.printf("first player ready");
             Thread::wait(1000);
@@ -475,9 +475,9 @@ void mbedSend(void const *args) {
         //    Thread::wait(1000); // run once a second
         }
         if (two_player_win) { // if this player wins, notify the other mbed/player that they lost.
-            mbed.lock();
+            mbedLock.lock();
             secondMbed.putc('W');
-            mbed.unlock();
+            mbedLock.unlock();
         }
         //if (secondMbed.readable()) {
         //    if (secondMbed.getc() == 'W') {
@@ -491,14 +491,14 @@ void mbedSend(void const *args) {
 void mbedReceive(void const *args) {
     char rx;
     while(1) {
-        mbed.lock();
+        mbedLock.lock();
         while(numPlayers == 1 || !secondMbed.readable()) {
              mbed.unlock();
              //pc.printf("yielding");
              Thread::yield(); // with one player, thread is unneeded and should yield.
         }
         rx = secondMbed.getc();
-        mbed.unlock();
+        mbedLock.unlock();
         if (rx == 'S') {
             second_player_ready = true;
             //pc.printf("second play ready");
