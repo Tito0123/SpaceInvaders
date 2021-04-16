@@ -107,6 +107,10 @@ volatile bool gameover = false;
 volatile int numPlayers = 1;
 volatile bool first_player_ready = false;
 volatile bool second_player_ready = false;
+volatile bool begin_game2 = false;
+volatile int numWins = 0;
+volatile bool two_player_win = false;
+volatile bool two_player_lose = false;
 
 // Initialize global player object
 player_t player;
@@ -415,7 +419,7 @@ void playstart(void const *args)//Th
         }
         
         // Checks in game sound conditions
-        while(begin_game) 
+        while(begin_game || begin_game2) // added OR begin_game2 so that music/sounds play during one-player or two-player 
         {
             // play firing sound when the player fires
             if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
@@ -448,22 +452,31 @@ void playstart(void const *args)//Th
     }
 }
 
-// Thread added for mbed communication, which allows two-player
+// Thread added for mbed communication, which allows two-player -- Brice
 void mbedComm(void const *args) {
     while(1) {
-        while(numPlayers == 1) Thread::yield();
-        while(!first_player_ready || !second_player_ready) {
+        while(numPlayers == 1) Thread::yield(); // with one player, thread is unneeded and should yield.
+        while(!first_player_ready || !second_player_ready) { // while either player isn't ready, send a start code, and become ready
         //if (!first_player_ready || !second_player_ready) {
             secondMbed.putc('S');
             first_player_ready = true;
         //}            
-            if (secondMbed.readable()) {
+            if (secondMbed.readable()) { // read in a start code to know that the second player is ready (if the second player sends a start code)
                 if (secondMbed.getc() == 'S') {
                     second_player_ready = true;
                 }
             }
-            Thread::wait(1000);
+            Thread::wait(1000); // run once a second
         }
+        if (two_player_win) { // if this player wins, notify the other mbed/player that they lost.
+            secondMbed.putc('W');
+        }
+        if (secondMbed.readable()) {
+            if (secondMbed.getc() == 'W') {
+                two_player_lose = true;
+            }
+        }
+        Thread::wait(500); // check twice a second for a win
     }
 }
 
@@ -552,7 +565,12 @@ int main() {
             }
         }
         while(numPlayers != 1 && (!first_player_ready || !second_player_ready)) Thread::yield(); // added to force wait with two-player and one player not ready. -- added by Brice
-        begin_game = true; // defaults begin_game to true
+        if (numPlayers == 2 && first_player_ready && second_player_ready) {
+            begin_game2 = true;
+            numWins = 0;
+        } else {
+            begin_game = true; // defaults begin_game to true
+        }
         
         uLCD.cls();
 
@@ -667,7 +685,7 @@ int main() {
                 uLCD.media_init();
                 uLCD.set_sector_address(0x00, 0x00);
                 uLCD.display_video(0,0);
-                wait(1);
+                Thread::wait(1000); // changed from wait(1) to Thread::wait(1000) since we're using threads -- Brice
                 
                 uLCD.cls();
                 
@@ -688,7 +706,7 @@ int main() {
                     if (!pb)
                     {
                         win = false;
-                        wait(0.5);
+                        Thread::wait(500); // changed from wait(0.5) to Thread::wait(500) since we're using threads
                     }
                 }
                 
@@ -699,7 +717,7 @@ int main() {
             {
                 // updates lives
                 lives -= 1;
-                wait(0.5);
+                Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                 hit_player = 0;
                 player_show(&player);
                 player.status = PLAYER_ALIVE;
@@ -720,7 +738,7 @@ int main() {
                 // prints "GAMEOVER" to uLCD
                 uLCD.locate(gameover_x_pos, gameover_y_pos);
                 uLCD.printf("GAMEOVER");
-                wait(1);
+                Thread::wait(1000); // changed from wait(1) to thread::wait since we're using threads -- Brice
                 
                 // prints "Play Again?" and "Press pb..."
                 uLCD.locate(startover_x_pos, startover_y_pos);
@@ -736,7 +754,228 @@ int main() {
                     {
                         gameover = false;
                         game_menu = true;
-                        wait(0.5);
+                        Thread::wait(500); // changed wait(0.5) to Thread::wait since we're using threads -- Brice
+                    }
+                }
+            }
+
+        }
+                // game play loop
+        while(begin_game2) 
+        {
+            // updates score
+            temp = score;
+            score = (15-numOfEnemies)*15;
+            
+            // prints score if score changes
+            if (score != temp)
+            {
+                uLCD.locate(9,0);
+                uLCD.printf("Score:%i", score);
+            }
+            
+            // move enemy
+            enemy_motion();
+
+            // checks if player missile passes y-pos of row1
+            if (missile.missile_blk_y+1-missile.missile_height <= enemy_1.enemy_blk_y
+                    && missile.missile_blk_y+1-missile.missile_height >= enemy_1.enemy_blk_y-enemy_1.enemy_height) 
+            {
+                check_hit_enemy_row1();
+            }
+
+            // checks if player missile passes y-pos of row2
+            if (missile.missile_blk_y+1-missile.missile_height <= enemy_6.enemy_blk_y
+                    && missile.missile_blk_y+1-missile.missile_height >= enemy_6.enemy_blk_y-enemy_6.enemy_height) 
+            {
+                check_hit_enemy_row2();
+            }
+
+            // checks if player missile passes y-pos of row3
+            if (missile.missile_blk_y+1-missile.missile_height <= enemy_11.enemy_blk_y
+                    && missile.missile_blk_y+1-missile.missile_height >= enemy_11.enemy_blk_y-enemy_11.enemy_height) 
+            {
+                check_hit_enemy_row3();
+            }
+            
+            // Random Enemy Fire
+            if (enemy_missile.status == ENEMY_MISSILE_INACTIVE) 
+            {
+                random_attack_gen();
+            }
+            
+            // checks if enemy missile passes y-pos of player
+            if (enemy_missile.missile_blk_y >= player.player_blk_y
+                    && enemy_missile.missile_blk_y <= player.player_blk_y+player.player_height)
+            {
+                check_player_hit();
+            }
+
+            update_missile_pos(&missile); // updates player missile position
+            update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
+
+            // Player Movement checked with navigation switch
+            if (myNav.left() && ((player.player_blk_x-3) > 0)) 
+            {
+                player_erase(&player);
+                player.player_blk_x -= 3;
+                player_show(&player);
+            } 
+            else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width))) 
+            {
+                player_erase(&player);
+                player.player_blk_x += 3;
+                player_show(&player);
+            }
+
+            // Player Fire
+            if (pb == 0 && missile.status == PLAYER_MISSILE_INACTIVE) 
+            {
+                missile.missile_blk_x = player.player_blk_x+(player.player_width/2);
+                missile.missile_blk_y = player.player_blk_y;
+                missile.status = PLAYER_MISSILE_ACTIVE;
+            }
+            
+            // checks if player destroyed all enemies
+            if (numOfEnemies == 0)
+            {
+                uLCD.cls();
+                
+                bool win = true; // sets win to true, for win screen
+                numWins += 1;
+                if (numWins == 3) {
+                    begin_game2 = false;
+                    two_player_win = true;
+                }
+                
+                // displays video clip
+                uLCD.cls();
+                uLCD.media_init();
+                uLCD.set_sector_address(0x00, 0x00);
+                uLCD.display_video(0,0);
+                Thread::wait(1000); // changed from wait(1) 
+                
+                uLCD.cls();
+                if (!two_player_win) {
+                    // prints "Number of Wins" on uLCD -- Brice. A step towards victory, not a complete victory.    
+                    uLCD.locate(win_x_pos,win_y_pos);
+                    uLCD.printf("YOU HAVE %d WINS!", numWins);
+                
+                    // prints "Continue?" and "Press pb..." Keep trying to get points --Brice.
+                    uLCD.locate(startover_x_pos, startover_y_pos);
+                    uLCD.printf("Continue?");
+                    uLCD.locate(startover_x_pos, startover_y_pos+1);
+                    uLCD.printf("Press pb...");
+                
+                    // waits at win screen until pushbutton is pressed
+                    while (win)
+                    {
+                        // if pb is pressed, reset game to start menu
+                        if (!pb)
+                        {
+                            win = false;
+                            Thread::wait(500); // changed from wait(0.5) since we have threads -- Brice
+                        }
+                    }
+                } else {
+                    // prints CONGRATULATIONS! since player has won. --Brice 
+                    uLCD.locate(win_x_pos,win_y_pos);
+                    uLCD.printf("CONGRATULATIONS!"); 
+                
+                    // prints "Return to menu?" and "Press pb..." --Brice.
+                    uLCD.locate(startover_x_pos, startover_y_pos);
+                    uLCD.printf("Return to menu?");
+                    uLCD.locate(startover_x_pos, startover_y_pos+1);
+                    uLCD.printf("Press pb...");
+                
+                    // waits at win screen until pushbutton is pressed
+                    while (two_player_win)
+                    {
+                        // if pb is pressed, reset game to start menu
+                        if (!pb)
+                        {
+                            two_player_win = false; // close win -- Brice
+                            game_menu = true; // go back to menu -- Brice
+                            Thread::wait(500); // changed from wait(0.5) since we have threads -- Brice
+                        }
+                    }
+                }
+            }
+            
+            // checks if player was hit
+            if (hit_player)
+            {
+                // updates lives
+                lives -= 1;
+                Thread::wait(500); // changed from wait(0.5) since we're using threads --Brice
+                hit_player = 0;
+                player_show(&player);
+                player.status = PLAYER_ALIVE;
+                
+                // prints updated lives number
+                uLCD.locate(0,0);
+                uLCD.printf("Lives:%i", lives);
+            }   
+            
+            // if player loses all lives or enemy reaches the player
+            if (lose || lives == 0)
+            {    
+                //begin_game = false; // set to false to end game -- not needed in two-player, just keep playing until a player reaches 3 wins -- Brice
+                uLCD.cls();
+                
+                gameover = true; // set to go to display gameover screen
+                
+                // prints "GAMEOVER" to uLCD
+                uLCD.locate(gameover_x_pos, gameover_y_pos);
+                uLCD.printf("YOU DIED");
+                Thread::wait(1000); // changed from wait(1) since we have multiple threads -- Brice
+                
+                // prints "Play Again?" and "Press pb..."
+                uLCD.locate(startover_x_pos, startover_y_pos);
+                uLCD.printf("Keep trying!");
+                uLCD.locate(startover_x_pos, startover_y_pos+1);
+                uLCD.printf("Press pb...");
+                
+                // stays in gameover screen until pb is pressed
+                while (gameover)
+                {
+                    // if pb is pressed, game is reset to the game menu screen
+                    if (!pb)
+                    {
+                        gameover = false;
+                        //game_menu = true; // removed since other player must win three times for game to be over.
+                        Thread::wait(500); // changed from wait(0.5) since we have threads.
+                    }
+                }
+            }
+            if (two_player_lose)
+            {    
+                begin_game2 = false; // set to false to end game. End game since other player won.
+                uLCD.cls();
+                
+                gameover = true; // set to go to display gameover screen
+                
+                // prints "GAMEOVER" to uLCD
+                uLCD.locate(gameover_x_pos, gameover_y_pos);
+                uLCD.printf("GAMEOVER");
+                Thread::wait(1000); // thread wait since we have multiple threads -- Brice
+                
+                // prints "Return to menu?" and "Press pb..."
+                uLCD.locate(startover_x_pos, startover_y_pos);
+                uLCD.printf("Return to menu?"); 
+                uLCD.locate(startover_x_pos, startover_y_pos+1);
+                uLCD.printf("Press pb...");
+                
+                // stays in gameover screen until pb is pressed
+                while (gameover)
+                {
+                    // if pb is pressed, game is reset to the game menu screen
+                    if (!pb)
+                    {
+                        gameover = false;
+                        two_player_lose = false; // end lose.
+                        game_menu = true; // removed since other player must win three times for game to be over.
+                        Thread::wait(500); // changed from wait(0.5) since we have threads.
                     }
                 }
             }
