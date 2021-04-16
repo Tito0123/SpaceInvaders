@@ -493,7 +493,7 @@ void mbedReceive(void const *args) {
     while(1) {
         mbedLock.lock();
         while(numPlayers == 1 || !secondMbed.readable()) {
-             mbed.unlock();
+             mbedLock.unlock();
              //pc.printf("yielding");
              Thread::yield(); // with one player, thread is unneeded and should yield.
         }
