@@ -446,6 +446,8 @@ void playstart(void const *args)//Th
     }
 }
 
+//void mbedComm(void const *args) {
+    
 int main() {
      
      // Initialization of Setup variables
@@ -527,7 +529,7 @@ int main() {
                 } else if (level_cursor_y_pos == start_label_y_pos + 1) {
                     numPlayers = 2;
                 }
-                wait(0.5);
+                Thread::wait(500); // changed this to Thread::wait ... originally wait(0.5);
             }
         }
         
