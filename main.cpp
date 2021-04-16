@@ -453,28 +453,48 @@ void playstart(void const *args)//Th
 }
 
 // Thread added for mbed communication, which allows two-player -- Brice
-void mbedComm(void const *args) {
+void mbedSend(void const *args) {
     while(1) {
         while(numPlayers == 1) Thread::yield(); // with one player, thread is unneeded and should yield.
         while(!first_player_ready || !second_player_ready) { // while either player isn't ready, send a start code, and become ready
         //if (!first_player_ready || !second_player_ready) {
             secondMbed.putc('S');
             first_player_ready = true;
+            pc.printf("first player ready");
         //}            
-            if (secondMbed.readable()) { // read in a start code to know that the second player is ready (if the second player sends a start code)
-                if (secondMbed.getc() == 'S') {
-                    second_player_ready = true;
-                }
-            }
-            Thread::wait(1000); // run once a second
+        //    if (secondMbed.readable()) { // read in a start code to know that the second player is ready (if the second player sends a start code)
+        //        if (secondMbed.getc() == 'S') {
+        //            second_player_ready = true;
+        //            pc.printf("second play ready");
+        //        }
+        //    }
+        //    Thread::wait(1000); // run once a second
         }
         if (two_player_win) { // if this player wins, notify the other mbed/player that they lost.
             secondMbed.putc('W');
         }
-        if (secondMbed.readable()) {
-            if (secondMbed.getc() == 'W') {
-                two_player_lose = true;
-            }
+        //if (secondMbed.readable()) {
+        //    if (secondMbed.getc() == 'W') {
+        //        two_player_lose = true;
+        //    }
+        //}
+        Thread::wait(500); // check twice a second for a win
+    }
+}
+
+void mbedReceive(void const *args) {
+    while(1) {
+        while(numPlayers == 1 || secondMbed.readable()) Thread::yield(); // with one player, thread is unneeded and should yield.
+        if (!second_player_ready) { // read in a start code to know that the second player is ready (if the second player sends a start code)
+                if (secondMbed.getc() == 'S') {
+                    second_player_ready = true;
+                    pc.printf("second play ready");
+                }
+        }
+        //    Thread::wait(1000); // run once a second
+        //}
+        if (secondMbed.getc() == 'W') {
+            two_player_lose = true;
         }
         Thread::wait(500); // check twice a second for a win
     }
@@ -487,7 +507,8 @@ int main() {
      pb.mode(PullUp);
      
      Thread thread(playstart); // intializes the thread to play sound
-     Thread thread2(mbedComm); // initialized thread to start mbed communication between players -- Brice
+     Thread thread2(mbedSend); // initialized thread to start mbed communication between players -- Brice
+     Thread thread3(mbedReceive); // initialize thread to receive chars from other mbed. -- Brice
      uLCD.baudrate(500000); // set to 500000 to increase smooth gameplay
      
      // Initialization of Game Menu variables
@@ -560,6 +581,7 @@ int main() {
                     numPlayers = 1;
                 } else if (level_cursor_y_pos == start_label_y_pos + 1) {
                     numPlayers = 2;
+                    pc.printf("num players: 2");
                 }
                 Thread::wait(500); // changed this to Thread::wait ... originally wait(0.5);
             }
