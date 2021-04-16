@@ -105,6 +105,8 @@ volatile bool game_menu = false;
 volatile bool begin_game = false;
 volatile bool gameover = false;
 volatile int numPlayers = 1;
+volatile bool first_player_ready = false;
+volatile bool second_player_ready = false;
 
 // Initialize global player object
 player_t player;
@@ -446,8 +448,25 @@ void playstart(void const *args)//Th
     }
 }
 
-//void mbedComm(void const *args) {
-    
+// Thread added for mbed communication, which allows two-player
+void mbedComm(void const *args) {
+    while(1) {
+        while(numPlayers == 1) Thread::yield();
+        while(!first_player_ready || !second_player_ready) {
+        //if (!first_player_ready || !second_player_ready) {
+            secondMbed.putc('S');
+            first_player_ready = true;
+        //}            
+            if (secondMbed.readable()) {
+                if (secondMbed.getc() == 'S') {
+                    second_player_ready = true;
+                }
+            }
+            Thread::wait(1000);
+        }
+    }
+}
+
 int main() {
      
      // Initialization of Setup variables
@@ -455,7 +474,7 @@ int main() {
      pb.mode(PullUp);
      
      Thread thread(playstart); // intializes the thread to play sound
-     
+     Thread thread2(mbedComm); // initialized thread to start mbed communication between players -- Brice
      uLCD.baudrate(500000); // set to 500000 to increase smooth gameplay
      
      // Initialization of Game Menu variables
@@ -532,7 +551,7 @@ int main() {
                 Thread::wait(500); // changed this to Thread::wait ... originally wait(0.5);
             }
         }
-        
+        while(numPlayers != 1 && (!first_player_ready || !second_player_ready)) Thread::yield(); // added to force wait with two-player and one player not ready. -- added by Brice
         begin_game = true; // defaults begin_game to true
         
         uLCD.cls();
