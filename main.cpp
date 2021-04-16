@@ -452,7 +452,7 @@ void playstart(void const *args)//Th
         }
     }
 }
-
+/*
 // Thread added for mbed communication, which allows two-player -- Brice
 void mbedSend(void const *args) {
     while(1) {
@@ -463,7 +463,7 @@ void mbedSend(void const *args) {
             secondMbed.putc('S');
             mbedLock.unlock();
             first_player_ready = true;
-            //pc.printf("first player ready");
+            pc.printf("first player ready");
             Thread::wait(1000);
         //}            
         //    if (secondMbed.readable()) { // read in a start code to know that the second player is ready (if the second player sends a start code)
@@ -487,28 +487,108 @@ void mbedSend(void const *args) {
         Thread::wait(2000); // check twice a second for a win
     }
 }
-
+*/
+/*
 void mbedReceive(void const *args) {
     char rx;
     while(1) {
+        rx = '0';
         mbedLock.lock();
         while(numPlayers == 1 || !secondMbed.readable()) {
              mbedLock.unlock();
-             //pc.printf("yielding");
+             pc.printf("yielding");
              Thread::yield(); // with one player, thread is unneeded and should yield.
         }
         rx = secondMbed.getc();
+        pc.printf("%c", rx);
         mbedLock.unlock();
         if (rx == 'S') {
             second_player_ready = true;
-            //pc.printf("second play ready");
+            pc.printf("second play ready");
         }
         //    Thread::wait(1000); // run once a second
         //}
         if (rx == 'W') {
             two_player_lose = true;
         }
-        Thread::wait(2000); // check twice a second for a win
+        Thread::wait(3000); // check twice a second for a win
+    }
+}
+*/
+
+// UNCOMMENT THIS THREAD IF SECOND PLAYER AND COMMENT MASTER THREAD
+/*
+// The slave mbed device (second player) should uncomment this thread -- Brice
+void mbedSlave(void const *args) {
+    char rx;
+    while(1) {
+        while(numPlayers == 1) Thread::yield();
+        rx = '0';
+        if (secondMbed.readable()) {
+            rx = secondMbed.getc();
+            if (!begin_game2 && rx == 'S') {
+                secondMbed.putc(rx);
+                first_player_ready = true;
+                second_player_ready = true;
+            } else if (begin_game2 && rx == 'W') {
+                secondMbed.putc(rx);
+                first_player_ready = false;
+                second_player_ready = false;
+                two_player_lose = true;
+            }
+        }
+        if (begin_game2 && two_player_win) {
+            secondMbed.putc('W');
+            while(!secondMbed.readable()) wait(0.5); // ok to lock up with wait because we don't want to confirm when before anything else. --Brice
+            rx = secondMbed.getc();
+            if (rx == 'W') {
+                begin_game2 = false;
+                first_player_ready = false;
+                second_player_ready = false;
+            }
+        }
+        Thread::wait(1000);
+    }
+}
+*/
+
+// UNCOMMENT THIS THREAD IF FIRST PLAYER AND COMMENT SLAVE THREAD
+// The master mbed device (second player) should uncomment this thread -- Brice
+void mbedMaster(void const *args) {
+    char rx;
+    while(1) {
+        while(numPlayers == 1) Thread::yield();
+        rx = '0';
+        if (!begin_game2) {
+            secondMbed.putc('S');
+            while(!secondMbed.readable()) wait(0.5); // okay to lock up until can confirm game is ready. --Brice
+            rx = secondMbed.getc();
+            if (rx == 'S') {
+                first_player_ready = true;
+                second_player_ready = true;
+            }
+        } else {
+            if (secondMbed.readable()) {
+                rx = secondMbed.getc();
+                if (rx == 'W') {
+                    secondMbed.putc(rx);
+                    first_player_ready = false;
+                    second_player_ready = false;
+                    two_player_lose = true;
+                }
+            }
+            if (two_player_win) {
+                secondMbed.putc('W');
+                while(!secondMbed.readable()) wait(0.5); // ok to lock up with wait because we don't want to confirm when before anything else. --Brice
+                rx = secondMbed.getc();
+                if (rx == 'W') {
+                    begin_game2 = false;
+                    first_player_ready = false;
+                    second_player_ready = false;
+                }
+            }
+        }
+        Thread::wait(1000);
     }
 }
 
@@ -519,8 +599,10 @@ int main() {
      pb.mode(PullUp);
      
      Thread thread(playstart); // intializes the thread to play sound
-     Thread thread2(mbedSend); // initialized thread to start mbed communication between players -- Brice
-     Thread thread3(mbedReceive); // initialize thread to receive chars from other mbed. -- Brice
+     // Should only have the Slave thread uncommented if second player.
+     // Should only have the Master thread uncommented if first player.
+     //Thread thread2(mbedSlave); // uncommented if second player -- Brice
+     Thread thread3(mbedMaster); // uncommented if first player -- Brice
      uLCD.baudrate(500000); // set to 500000 to increase smooth gameplay
      
      // Initialization of Game Menu variables
@@ -878,7 +960,7 @@ int main() {
                 bool win = true; // sets win to true, for win screen
                 numWins += 1;
                 if (numWins == 3) {
-                    begin_game2 = false;
+                    //begin_game2 = false;  // Allow the mbed communication thread to change the begin_game2 bool to false after letting other mbed know.
                     two_player_win = true;
                 }
                 
