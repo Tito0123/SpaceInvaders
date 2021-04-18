@@ -74,6 +74,9 @@ Nav_Switch myNav(p16, p10, p11, p9, p12); //pin order on Sparkfun breakout. move
 DigitalIn pb(p15); // push button for player misisle fire
 Serial pc(USBTX, USBRX);
 Serial secondMbed(p13, p14);
+PwmOut red(p21); // added to dim and brighten red LED -- Brice
+PwmOut green(p22); // added to dim and brighten green LED -- Brice
+PwmOut blue(p23); // added to dim and brighten blue LED -- Brice
 // Initialize all global enemy objects
 enemy_t enemy_1;
 enemy_t enemy_2;
@@ -452,6 +455,107 @@ void playstart(void const *args)//Th
         }
     }
 }
+
+// thread that adds RGB LED Lighting Effects that coincide with the game -- Brice
+void ledEffects(void const *args)//Th
+{   //Depending on the state of the game,
+    //generate different patterns/colors of lighting
+    while(1) {
+        // gradually increases and decreases each color independently. (A chill build up effect?)
+        while(game_menu)
+        {
+            red = 0.0;
+            green = 0.0;
+            blue = 0.0;
+            for (float i = 0.0; i < 0.5; i = i + 0.05) {
+                red = i;
+                Thread::wait(10);
+            }
+            red = 0.5;
+            Thread::wait(300);
+            for (float i = 0.5; i > 0.0; i = i - 0.05) {
+                red = i;
+                Thread::wait(10);
+            }
+            red = 0.0;
+            for (float i = 0.0; i < 0.25; i = i + 0.05) {
+                green = i;
+                Thread::wait(10);
+            }
+            green = 0.25;
+            Thread::wait(300);
+            for (float i = 0.25; i > 0.0; i = i - 0.05) {
+                green = i;
+                Thread::wait(10);
+            }
+            green = 0.0;
+            for (float i = 0.0; i < 0.5; i = i + 0.05) {
+                blue = i;
+                Thread::wait(10);
+            }
+            blue = 0.5;
+            Thread::wait(300);
+            for (float i = 0.5; i > 0.0; i = i - 0.05) {
+                blue = i;
+                Thread::wait(10);
+            }
+            blue = 0.0;
+        }
+        // Checks in game sound conditions
+        while(begin_game || begin_game2) // added OR begin_game2 so that music/sounds play during one-player or two-player 
+        {
+            // play firing sound when the player fires
+            if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
+                red = 0.0;
+                green = 0.0;
+                blue = 0.0;
+                red = 0.5;
+                Thread::wait(200);
+                green = 0.15;
+                Thread::wait(200);
+                red = 0.0;
+                green = 0.0;
+            }
+            
+            // if player hit, play hit sound
+            if (hit_player)
+            {
+                red = 0.0;
+                green = 0.0;
+                blue = 0.0;
+                red = 0.5;
+                Thread::wait(60);
+                red = 0.0;
+                Thread::wait(60);
+                red = 0.5;
+                Thread::wait(60);
+                red = 0.0;
+                Thread::wait(60);
+                red = 0.5;
+                Thread::wait(60);
+                red = 0.0;
+            }
+            Thread::wait(500);
+        }
+        
+        // players gameover voice if player loses
+        while(gameover)
+        {
+            for (float i = 0.0; i < 0.25; i = i + 0.05) {
+                red = i;
+                Thread::wait(10);
+            }
+            red = 0.25;
+            Thread::wait(300);
+            for (float i = 0.25; i > 0.0; i = i - 0.05) {
+                red = i;
+                Thread::wait(10);
+            }
+            red = 0.0;
+            Thread::wait(500);
+        }
+    }
+}
 /*
 // Thread added for mbed communication, which allows two-player -- Brice
 void mbedSend(void const *args) {
@@ -603,6 +707,7 @@ int main() {
      // Should only have the Master thread uncommented if first player.
      //Thread thread2(mbedSlave); // uncommented if second player -- Brice
      Thread thread3(mbedMaster); // uncommented if first player -- Brice
+     Thread thread4(ledEffects); // thread added for LED lighting effects -- Brice
      uLCD.baudrate(500000); // set to 500000 to increase smooth gameplay
      
      // Initialization of Game Menu variables
