@@ -405,7 +405,7 @@ void move_enemy_down()
     enemy_14.enemy_blk_y += enemy_14.enemy_height+4;
     enemy_15.enemy_blk_y += enemy_15.enemy_height+4;
 }
-
+/*
 // thread that plays sounds during game
 void playstart(void const *args)//Th
 {   //Depending on the state of the game,
@@ -455,6 +455,7 @@ void playstart(void const *args)//Th
         }
     }
 }
+*/
 
 // thread that adds RGB LED Lighting Effects that coincide with the game -- Brice
 void ledEffects(void const *args)//Th
@@ -626,14 +627,16 @@ void mbedReceive(void const *args) {
 void mbedSlave(void const *args) {
     char rx;
     while(1) {
-        while(numPlayers == 1) Thread::yield();
+        //while(numPlayers == 1) Thread::yield();
         rx = '0';
         if (secondMbed.readable()) {
             rx = secondMbed.getc();
             if (!begin_game2 && rx == 'S') {
+                while (!secondMbed.writeable()) wait(0.5);
                 secondMbed.putc(rx);
                 first_player_ready = true;
                 second_player_ready = true;
+                numPlayers = 2;
             } else if (begin_game2 && rx == 'W') {
                 secondMbed.putc(rx);
                 first_player_ready = false;
@@ -664,14 +667,26 @@ void mbedMaster(void const *args) {
         while(numPlayers == 1) Thread::yield();
         rx = '0';
         if (!begin_game2) {
+            while(!secondMbed.writeable()) {
+                pc.printf("not writeable");
+                wait(0.5);
+            }
             secondMbed.putc('S');
-            while(!secondMbed.readable()) wait(0.5); // okay to lock up until can confirm game is ready. --Brice
+            while(!secondMbed.readable()) {
+                 pc.printf("no read\n\r");
+                 wait(0.5); // okay to lock up until can confirm game is ready. --Brice
+            }
             rx = secondMbed.getc();
+            pc.printf("rx = %c", rx);
             if (rx == 'S') {
                 first_player_ready = true;
                 second_player_ready = true;
+                pc.printf("both players ready");
             }
-        } else {
+        }
+        //} else {
+        while (first_player_ready && second_player_ready) {
+            rx = '0';
             if (secondMbed.readable()) {
                 rx = secondMbed.getc();
                 if (rx == 'W') {
@@ -691,8 +706,9 @@ void mbedMaster(void const *args) {
                     second_player_ready = false;
                 }
             }
+            Thread::wait(1000);
         }
-        Thread::wait(1000);
+        //Thread::wait(1000);
     }
 }
 
@@ -708,6 +724,7 @@ int main() {
      //Thread thread2(mbedSlave); // uncommented if second player -- Brice
      Thread thread3(mbedMaster); // uncommented if first player -- Brice
      Thread thread4(ledEffects); // thread added for LED lighting effects -- Brice
+     secondMbed.baud(9600);
      uLCD.baudrate(500000); // set to 500000 to increase smooth gameplay
      
      // Initialization of Game Menu variables
