@@ -114,6 +114,8 @@ volatile bool begin_game2 = false;
 volatile int numWins = 0;
 volatile bool two_player_win = false;
 volatile bool two_player_lose = false;
+Timer bestTimer;
+Mutex SDLock;
 Mutex mbedLock;
 
 // Initialize global player object
@@ -128,7 +130,7 @@ enemy_t * enemyArray[15];
 
 // Function Prototypes
 void move_enemy_down();
-void playstart(void const *args);
+//void playstart(void const *args); // PUT BACK IN
 
 // Draws the enemies at the initial starting location    
 void draw_enemies_level()
@@ -416,10 +418,12 @@ void playstart(void const *args)//Th
         // plays intro music during menu screen
         while(game_menu)
         {
+            SDLock.lock();
             wave_file=fopen("/sd/wavfiles/futureEdit2.wav","r");
             if(wave_file==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
             waver.play(wave_file);
             fclose(wave_file);
+            SDLock.unlock();
         }
         
         // Checks in game sound conditions
@@ -428,30 +432,36 @@ void playstart(void const *args)//Th
             // play firing sound when the player fires
             if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
  
+                SDLock.lock();
                 wave_file=fopen("/sd/wavfiles/laserEdit.wav","r");
                 if(wave_file==NULL) pc.printf("laser file open error!\n\n\r"); // added this for open error check
  
                 waver.play(wave_file);
                 fclose(wave_file);
+                SDLock.unlock();
             }
             
             // if player hit, play hit sound
             if (hit_player)
             {
+                SDLock.lock();
                 wave_file=fopen("/sd/wavfiles/bigExplosionEdit2.wav","r");
                 if(wave_file==NULL) pc.printf("explosion file open error!\n\n\r"); // added this for open error check
                 waver.play(wave_file);
                 fclose(wave_file);
+                SDLock.unlock();
             }
         }
         
         // players gameover voice if player loses
         while(gameover)
         {
+            SDLock.lock();
             wave_file=fopen("/sd/wavfiles/comicalgameoverEdit.wav","r");
             if(wave_file==NULL) pc.printf("gameover file open error!\n\n\r"); // added this for open error check
             waver.play(wave_file);
             fclose(wave_file);
+            SDLock.unlock();
         }
     }
 }
@@ -718,7 +728,7 @@ int main() {
      int blk_x, blk_y;
      pb.mode(PullUp);
      
-     Thread thread(playstart); // intializes the thread to play sound
+     //Thread thread(playstart); // intializes the thread to play sound
      // Should only have the Slave thread uncommented if second player.
      // Should only have the Master thread uncommented if first player.
      //Thread thread2(mbedSlave); // uncommented if second player -- Brice
@@ -739,9 +749,9 @@ int main() {
     int gameover_x_pos = 5; // gameover label x-position
     int gameover_y_pos = 5; // gameover label y-position
     int win_x_pos = 2; // congratulations label x-position
-    int win_y_pos = 5; // congratulations label y-position
+    int win_y_pos = 4; // congratulations label y-position
     int startover_x_pos = 3; // startover label x-position
-    int startover_y_pos = 8; // startover label y-position
+    int startover_y_pos = 7; // startover label y-position
     
     // intialize temporary score and current score
     int temp = 0;
@@ -808,6 +818,9 @@ int main() {
             numWins = 0;
         } else {
             begin_game = true; // defaults begin_game to true
+            
+            // Start timer to check for best time in single player.
+            bestTimer.start();
         }
         
         uLCD.cls();
@@ -913,19 +926,57 @@ int main() {
             // checks if player destroyed all enemies
             if (numOfEnemies == 0)
             {
+                // idea for best-time reading and updating: https://os.mbed.com/questions/75718/i-want-to-assign-int-value-saved-in-sd-t/
+                int time = bestTimer.read();
+                bestTimer.stop();
+                bestTimer.reset();
                 uLCD.cls();
+                char buffer[3] = {0};
+                char c = {0};
+                char *token;
+                int i = 0;
+                int storedTime = 999;
+                SDLock.lock();
+                FILE *sdtime;
+                sdtime=fopen("/sd/besttime.txt","r");
+                if(sdtime==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
+                while ((c != '\n') && (i < 3)) {
+                    c = fgetc(sdtime);
+                    buffer[i] = c;
+                    i++;
+                }
+                token = strtok(buffer, "\n");
+                storedTime = atoi(token); // convert string from file to integer
+                fclose(sdtime);
+                if (time < storedTime) {
+                    uLCD.locate(2,10);
+                    uLCD.printf("NEW BEST TIME!");
+                    uLCD.locate(2,11);
+                    uLCD.printf("%d seconds!", time);
+                    sdtime = fopen("/sd/besttime.txt", "w");
+                    if (sdtime != NULL) {
+                        fprintf(sdtime, "%d\r\n", time);
+                        fclose(sdtime);
+                    } else {
+                        pc.printf("write: failed!\r\n");
+                    }
+                }
+                SDLock.unlock();
+                
                 
                 bool win = true; // sets win to true, for win screen
                 begin_game = false;
                 
-                // displays video clip
+                // displays video clip ????
+                /*
                 uLCD.cls();
                 uLCD.media_init();
                 uLCD.set_sector_address(0x00, 0x00);
                 uLCD.display_video(0,0);
                 Thread::wait(1000); // changed from wait(1) to Thread::wait(1000) since we're using threads -- Brice
+                */
                 
-                uLCD.cls();
+                //uLCD.cls();
                 
                 // prints "Congratulations" on uLCD    
                 uLCD.locate(win_x_pos,win_y_pos);
@@ -1086,12 +1137,14 @@ int main() {
                     two_player_win = true;
                 }
                 
-                // displays video clip
+                // displays video clip ???
+                /*
                 uLCD.cls();
                 uLCD.media_init();
                 uLCD.set_sector_address(0x00, 0x00);
                 uLCD.display_video(0,0);
-                Thread::wait(1000); // changed from wait(1) 
+                Thread::wait(1000); // changed from wait(1)
+                */ 
                 
                 uLCD.cls();
                 if (!two_player_win) {
