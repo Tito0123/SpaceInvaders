@@ -103,13 +103,16 @@ volatile int DIRECTION = 1;
 volatile int firing_col = 0;
 volatile int hit_player = 0;
 volatile bool lose = false;
-volatile int lives = 3;
+volatile int lives1 = 3;
+volatile int lives2 = 2;
+volatile int lives3 = 1;
+volatile int level = 1;
 volatile bool game_menu = false;
 volatile bool begin_game = false;
 volatile bool gameover = false;
 volatile int numPlayers = 1;
-volatile bool first_player_ready = false;
-volatile bool second_player_ready = false;
+//volatile bool first_player_ready = false;
+//volatile bool second_player_ready = false;
 volatile bool begin_game2 = false;
 volatile int numWins = 0;
 volatile bool two_player_win = false;
@@ -130,7 +133,7 @@ enemy_t * enemyArray[15];
 
 // Function Prototypes
 void move_enemy_down();
-//void playstart(void const *args); // PUT BACK IN
+void playstart(void const *args); // PUT BACK IN
 
 // Draws the enemies at the initial starting location    
 void draw_enemies_level()
@@ -407,7 +410,7 @@ void move_enemy_down()
     enemy_14.enemy_blk_y += enemy_14.enemy_height+4;
     enemy_15.enemy_blk_y += enemy_15.enemy_height+4;
 }
-/*
+
 // thread that plays sounds during game
 void playstart(void const *args)//Th
 {   //Depending on the state of the game,
@@ -465,7 +468,7 @@ void playstart(void const *args)//Th
         }
     }
 }
-*/
+
 
 // thread that adds RGB LED Lighting Effects that coincide with the game -- Brice
 void ledEffects(void const *args)//Th
@@ -632,8 +635,9 @@ void mbedReceive(void const *args) {
 */
 
 // UNCOMMENT THIS THREAD IF SECOND PLAYER AND COMMENT MASTER THREAD
-/*
+
 // The slave mbed device (second player) should uncomment this thread -- Brice
+/*
 void mbedSlave(void const *args) {
     char rx;
     while(1) {
@@ -641,36 +645,47 @@ void mbedSlave(void const *args) {
         rx = '0';
         if (secondMbed.readable()) {
             rx = secondMbed.getc();
-            if (!begin_game2 && rx == 'S') {
-                while (!secondMbed.writeable()) wait(0.5);
-                secondMbed.putc(rx);
-                first_player_ready = true;
-                second_player_ready = true;
-                numPlayers = 2;
-            } else if (begin_game2 && rx == 'W') {
-                secondMbed.putc(rx);
-                first_player_ready = false;
-                second_player_ready = false;
-                two_player_lose = true;
-            }
+            pc.printf("rx = %c\n\r", rx);
+            //if (!begin_game2 && rx == 'S') {
+            while (!secondMbed.writeable()) wait(0.5);
+            secondMbed.putc(rx);
         }
+    }
+}
+                //first_player_ready = true;
+                //second_player_ready = true;
+            //    begin_game2 = true;
+            //    numPlayers = 2;
+            //} else if (begin_game2 && rx == 'W') {
+            //    secondMbed.putc(rx);
+                //first_player_ready = false;
+                //second_player_ready = false;
+            //    begin_game2 = false;
+            //    two_player_lose = true;
+            //}
+        //}*/
+        /*
         if (begin_game2 && two_player_win) {
+            while(!secondMbed.writeable()) wait(0.5);
             secondMbed.putc('W');
             while(!secondMbed.readable()) wait(0.5); // ok to lock up with wait because we don't want to confirm when before anything else. --Brice
             rx = secondMbed.getc();
             if (rx == 'W') {
                 begin_game2 = false;
-                first_player_ready = false;
-                second_player_ready = false;
+                //first_player_ready = false;
+                //second_player_ready = false;
             }
         }
-        Thread::wait(1000);
-    }
-}
-*/
+        */
+//        Thread::wait(1000);
+//    }
+//}
+
+
 
 // UNCOMMENT THIS THREAD IF FIRST PLAYER AND COMMENT SLAVE THREAD
 // The master mbed device (second player) should uncomment this thread -- Brice
+/*
 void mbedMaster(void const *args) {
     char rx;
     while(1) {
@@ -678,49 +693,46 @@ void mbedMaster(void const *args) {
         rx = '0';
         if (!begin_game2) {
             while(!secondMbed.writeable()) {
-                pc.printf("not writeable");
+               // pc.printf("not writeable");
                 wait(0.5);
             }
             secondMbed.putc('S');
             while(!secondMbed.readable()) {
-                 pc.printf("no read\n\r");
+                // pc.printf("no read\n\r");
                  wait(0.5); // okay to lock up until can confirm game is ready. --Brice
             }
             rx = secondMbed.getc();
-            pc.printf("rx = %c", rx);
-            if (rx == 'S') {
-                first_player_ready = true;
-                second_player_ready = true;
-                pc.printf("both players ready");
-            }
+            pc.printf("rx = %c\n\r", rx);
+            //if (rx == 'S') {
+            //    begin_game2 = true;
+            //    pc.printf("both players ready\n\r");
+            //}
         }
         //} else {
-        while (first_player_ready && second_player_ready) {
-            rx = '0';
-            if (secondMbed.readable()) {
-                rx = secondMbed.getc();
-                if (rx == 'W') {
-                    secondMbed.putc(rx);
-                    first_player_ready = false;
-                    second_player_ready = false;
-                    two_player_lose = true;
-                }
-            }
-            if (two_player_win) {
-                secondMbed.putc('W');
-                while(!secondMbed.readable()) wait(0.5); // ok to lock up with wait because we don't want to confirm when before anything else. --Brice
-                rx = secondMbed.getc();
-                if (rx == 'W') {
-                    begin_game2 = false;
-                    first_player_ready = false;
-                    second_player_ready = false;
-                }
-            }
-            Thread::wait(1000);
-        }
+        //while (begin_game2) {
+        //    rx = '0';
+        //    if (secondMbed.readable()) {
+        //        rx = secondMbed.getc();
+        //        if (rx == 'W') {
+        //            secondMbed.putc(rx);
+        //            begin_game2 = false;
+        //            two_player_lose = true;
+        //        }
+        //    }
+        //    if (two_player_win) {
+        //        secondMbed.putc('W');
+        //        while(!secondMbed.readable()) wait(0.5); // ok to lock up with wait because we don't want to confirm when before anything else. --Brice
+        //        rx = secondMbed.getc();
+        //        if (rx == 'W') {
+        //            begin_game2 = false;
+        //        }
+        //    }
+        //    Thread::wait(1000);
+        //}
         //Thread::wait(1000);
     }
 }
+*/
 
 int main() {
      
@@ -728,11 +740,11 @@ int main() {
      int blk_x, blk_y;
      pb.mode(PullUp);
      
-     //Thread thread(playstart); // intializes the thread to play sound
+     Thread thread(playstart); // intializes the thread to play sound
      // Should only have the Slave thread uncommented if second player.
      // Should only have the Master thread uncommented if first player.
      //Thread thread2(mbedSlave); // uncommented if second player -- Brice
-     Thread thread3(mbedMaster); // uncommented if first player -- Brice
+     //Thread thread3(mbedMaster); // uncommented if first player -- Brice
      Thread thread4(ledEffects); // thread added for LED lighting effects -- Brice
      secondMbed.baud(9600);
      uLCD.baudrate(500000); // set to 500000 to increase smooth gameplay
@@ -745,7 +757,7 @@ int main() {
     int level_cursor_x_pos = 5; // level cursor x-position
     int level_cursor_y_pos_start = 7; // level cursor y-position
     //int level_cursor_y_pos = 7; // initial level_cursor_y_pos @ start -- Added by Brice for more menu options
-    int level_cursor_y_pos_end = 8; // BOTTOM CURSOR POS -- Added by Brice for more menu options
+    int level_cursor_y_pos_end = 11; // BOTTOM CURSOR POS -- Added by Brice for more menu options
     int gameover_x_pos = 5; // gameover label x-position
     int gameover_y_pos = 5; // gameover label y-position
     int win_x_pos = 2; // congratulations label x-position
@@ -769,7 +781,9 @@ int main() {
         hit_player = 0; // default to not player hit
         MOVE_DOWN = 0; // default to not move down
         lose = false; // default to not lose
-        lives = 3; // defaults to 3 lives
+        lives1 = 3; // defaults to 3 lives
+        lives2 = 2; // 2 lives for medium
+        lives3 = 1; // 1 life for hard
         score = 0; // default to score of 0
         int level_cursor_y_pos = 7; // initial level_cursor_y_pos @ start -- Added by Brice for more menu options
         uLCD.cls();
@@ -783,9 +797,9 @@ int main() {
             uLCD.locate(level_cursor_x_pos, level_cursor_y_pos);
             uLCD.printf("  ");
             if (myNav.down() && level_cursor_y_pos < level_cursor_y_pos_end) {
-                level_cursor_y_pos += 1;
+                level_cursor_y_pos += 2;
             } else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
-                level_cursor_y_pos -= 1;
+                level_cursor_y_pos -= 2;
             }
             // end of movable cursor
             uLCD.locate(level_cursor_x_pos,level_cursor_y_pos); // draws cursor next to "START" label
@@ -794,27 +808,39 @@ int main() {
             uLCD.locate(title_x_pos,title_y_pos); // "SPACE INVADERS" title position
             uLCD.printf("SPACE INVADERS"); // Title
             
-            uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position
-            uLCD.printf("ONE-PLAYER");
+            //uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position
+            //uLCD.printf("ONE-PLAYER");
             
-            uLCD.locate(start_label_x_pos,start_label_y_pos + 1);
-            uLCD.printf("TWO-PLAYER");
+            //uLCD.locate(start_label_x_pos,start_label_y_pos + 1);
+            //uLCD.printf("TWO-PLAYER");
+            
+            uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position
+            uLCD.printf("LEVEL 1");
+            
+            uLCD.locate(start_label_x_pos,start_label_y_pos + 2);
+            uLCD.printf("LEVEL 2");
+            
+            uLCD.locate(start_label_x_pos,start_label_y_pos + 4);
+            uLCD.printf("LEVEL 3");
             // if pushbutton is pressed, game menu is exited and game begins
             if(!pb) 
             { 
                 game_menu = false;
                 if (level_cursor_y_pos == start_label_y_pos) {
-                    numPlayers = 1;
-                } else if (level_cursor_y_pos == start_label_y_pos + 1) {
-                    numPlayers = 2;
-                    pc.printf("num players: 2");
+                    //numPlayers = 1;
+                    level = 1;
+                } else if (level_cursor_y_pos == start_label_y_pos + 2) {
+                    //numPlayers = 2;
+                    //pc.printf("num players: 2");
+                    level = 2;
+                } else if (level_cursor_y_pos == start_label_y_pos + 4) {
+                    level = 3;
                 }
                 Thread::wait(500); // changed this to Thread::wait ... originally wait(0.5);
             }
         }
-        while(numPlayers != 1 && (!first_player_ready || !second_player_ready)) Thread::yield(); // added to force wait with two-player and one player not ready. -- added by Brice
-        if (numPlayers == 2 && first_player_ready && second_player_ready) {
-            begin_game2 = true;
+        while(numPlayers != 1 && !begin_game2) Thread::yield(); // added to force wait with two-player and one player not ready. -- added by Brice
+        if (numPlayers == 2 && begin_game2) {
             numWins = 0;
         } else {
             begin_game = true; // defaults begin_game to true
@@ -840,8 +866,18 @@ int main() {
         enemy_missile_init(&enemy_missile, e_blk_x, e_blk_y, WHITE);
         
         // prints lives
-        uLCD.locate(0,0);
-        uLCD.printf("Lives:%i", lives);
+        if (level == 1) {
+            uLCD.locate(0,0);
+            uLCD.printf("Lives:%i", 3);
+        } else if (level == 2) {
+            uLCD.locate(0,0);
+            uLCD.printf("Lives:%i", 2);
+        } else if (level == 3) {
+            uLCD.locate(0,0);
+            uLCD.printf("Lives:%i", 1);
+        }
+        //uLCD.locate(0,0);
+        //uLCD.printf("Lives:%i", lives);
 
         // prints score
         uLCD.locate(9,0);
@@ -1005,19 +1041,41 @@ int main() {
             if (hit_player)
             {
                 // updates lives
-                lives -= 1;
-                Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
-                hit_player = 0;
-                player_show(&player);
-                player.status = PLAYER_ALIVE;
+                if (level == 1) {
+                    lives1 -= 1;
+                    Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    hit_player = 0;
+                    player_show(&player);
+                    player.status = PLAYER_ALIVE;
                 
                 // prints updated lives number
-                uLCD.locate(0,0);
-                uLCD.printf("Lives:%i", lives);
+                    uLCD.locate(0,0);
+                    uLCD.printf("Lives:%i", lives1);
+                } else if (level == 2) {
+                    lives2 -= 1;
+                    Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    hit_player = 0;
+                    player_show(&player);
+                    player.status = PLAYER_ALIVE;
+                
+                // prints updated lives number
+                    uLCD.locate(0,0);
+                    uLCD.printf("Lives:%i", lives2);
+                } else if (level == 3) {
+                    lives3 -= 1;
+                    Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    hit_player = 0;
+                    player_show(&player);
+                    player.status = PLAYER_ALIVE;
+                
+                // prints updated lives number
+                    uLCD.locate(0,0);
+                    uLCD.printf("Lives:%i", lives3);
+                }
             }   
             
             // if player loses all lives or enemy reaches the player
-            if (lose || lives == 0)
+            if (lose || lives1 == 0 || lives2 == 0 || lives3 == 0)
             {    
                 begin_game = false; // set to false to end game
                 uLCD.cls();
@@ -1197,7 +1255,7 @@ int main() {
             if (hit_player)
             {
                 // updates lives
-                lives -= 1;
+                lives1 -= 1;
                 Thread::wait(500); // changed from wait(0.5) since we're using threads --Brice
                 hit_player = 0;
                 player_show(&player);
@@ -1205,11 +1263,11 @@ int main() {
                 
                 // prints updated lives number
                 uLCD.locate(0,0);
-                uLCD.printf("Lives:%i", lives);
+                uLCD.printf("Lives:%i", lives1);
             }   
             
             // if player loses all lives or enemy reaches the player
-            if (lose || lives == 0)
+            if (lose || lives1 == 0)
             {    
                 //begin_game = false; // set to false to end game -- not needed in two-player, just keep playing until a player reaches 3 wins -- Brice
                 uLCD.cls();
