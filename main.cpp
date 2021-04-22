@@ -747,7 +747,7 @@ int main() {
      //Thread thread3(mbedMaster); // uncommented if first player -- Brice
      Thread thread4(ledEffects); // thread added for LED lighting effects -- Brice
      secondMbed.baud(9600);
-     uLCD.baudrate(500000); // set to 500000 to increase smooth gameplay
+     uLCD.baudrate(3000000); // set to 3000000 to increase smooth gameplay
      
      // Initialization of Game Menu variables
     const int title_x_pos = 2; // initial x-pos of title
