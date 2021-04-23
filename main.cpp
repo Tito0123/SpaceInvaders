@@ -7,6 +7,7 @@
 #include "globals.h"
 #include "rtos.h"
 #include "SparkfunAnalogJoystick.h"
+#include "LSM9DS1.h"
 #include <string>
 
 /* ==== Navigation Switch ===== */
@@ -81,6 +82,7 @@ PwmOut red(p21); // added to dim and brighten red LED -- Brice
 PwmOut green(p22); // added to dim and brighten green LED -- Brice
 PwmOut blue(p23); // added to dim and brighten blue LED -- Brice
 SparkfunAnalogJoystick stick(p15, p16, p17); // Sparkfun analog joystick to replace the tactile switch (menu control and more fluid control of ship)
+LSM9DS1 IMU(p9, p10, 0xD6, 0x3C);
 // Initialize all global enemy objects
 enemy_t enemy_1;
 enemy_t enemy_2;
@@ -119,8 +121,8 @@ volatile int numPlayers = 1;
 //volatile bool second_player_ready = false;
 volatile bool begin_game2 = false;
 volatile int numWins = 0;
-//volatile bool two_player_win = false;
-//volatile bool two_player_lose = false;
+volatile bool two_player_win = false;
+volatile bool two_player_lose = false;
 Timer bestTimer;
 Mutex SDLock;
 Mutex mbedLock;
@@ -739,7 +741,11 @@ void mbedMaster(void const *args) {
 */
 
 int main() {
-     
+     IMU.begin();
+     if (!IMU.begin()) {
+         pc.printf("Failed to communicate with IMU\n\r");
+    }
+    IMU.calibrate(1);
      // Initialization of Setup variables
      int blk_x, blk_y;
      pb.mode(PullUp);
@@ -797,6 +803,8 @@ int main() {
         // Implementation of Game Menu
         while(game_menu) 
         {
+            float accelY = 0.0; // y acceleration
+            //float accelZ = 0.0; // z acceleration
             // Brice added this in order to move the cursor through the menu options
             uLCD.locate(level_cursor_x_pos, level_cursor_y_pos);
             uLCD.printf("  ");
@@ -805,6 +813,18 @@ int main() {
                 level_cursor_y_pos += 2;
             //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
             } else if ((stick.angle() <= 100 && stick.angle() >= 80) && level_cursor_y_pos > level_cursor_y_pos_start) {
+                level_cursor_y_pos -= 2;
+            }
+            
+            if (IMU.accelAvailable()) {
+                IMU.readAccel();
+                accelY = IMU.calcAccel(IMU.ay);
+                //pc.printf("Calc Accel: %f", accelY);
+            }
+            if ((accelY >= 0.25) && level_cursor_y_pos < level_cursor_y_pos_end) {
+                level_cursor_y_pos += 2;
+            //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
+            } else if ((accelY <= -0.25) && level_cursor_y_pos > level_cursor_y_pos_start) {
                 level_cursor_y_pos -= 2;
             }
             // end of movable cursor
@@ -946,7 +966,7 @@ int main() {
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
             float stickDist = stick.xAxis();
-            if ((stickDist < 0.0) && (player.player_blk_x + stickDist > 0.0))
+            if ((stickDist < 0.0) && (player.player_blk_x + stickDist*3 > 0.0))
             {
                 player_erase(&player);
                 //player.player_blk_x -= 3;
@@ -954,13 +974,30 @@ int main() {
                 player_show(&player);
             } 
             //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width)))
-            else if ((stickDist > 0.0) && ((player.player_blk_x + stickDist) < (128 - player.player_width))) 
+            else if ((stickDist > 0.0) && ((player.player_blk_x + stickDist*3) < (128 - player.player_width))) 
             {
                 player_erase(&player);
                 player.player_blk_x += (int)(stickDist*3);
                 player_show(&player);
             }
-
+            float accelX = 0.0; // x acceleration
+            if (IMU.accelAvailable()) {
+                IMU.readAccel();
+                accelX = IMU.calcAccel(IMU.ax);
+                //pc.printf("Calc Accel: %f", accelY);
+            }
+            if ((accelX <= -0.25) && (player.player_blk_x + accelX*5) > 0.0) {
+                player_erase(&player);
+                //player.player_blk_x -= 3;
+                player.player_blk_x += (int)(accelX*5);
+                player_show(&player);
+            //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
+            } else if ((accelX >= 0.25) && ((player.player_blk_x + accelX*5) < (128 - player.player_width))) {
+                player_erase(&player);
+                //player.player_blk_x -= 3;
+                player.player_blk_x += (int)(accelX*5);
+                player_show(&player);
+            }
             // Player Fire
             if (pb == 0 && missile.status == PLAYER_MISSILE_INACTIVE) 
             {
