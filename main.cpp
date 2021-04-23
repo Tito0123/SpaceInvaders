@@ -6,9 +6,11 @@
 #include "missile.h"
 #include "globals.h"
 #include "rtos.h"
+#include "SparkfunAnalogJoystick.h"
 #include <string>
 
 /* ==== Navigation Switch ===== */
+/*
 class Nav_Switch
 {
 public:
@@ -64,19 +66,21 @@ inline Nav_Switch::operator int ()
 {
     return _pins.read();
 }
+*/
 
 // Platform initialization
-uLCD_4DGL uLCD(p28,p27,p29); // LCD (serial tx, serial rx, reset pin;)
+uLCD_4DGL uLCD(p28,p27,p29);  // LCD (serial tx, serial rx, reset pin;)
 AnalogOut DACout(p18);      // speaker
 wave_player waver(&DACout); // wav player
 SDFileSystem sd(p5, p6, p7, p8, "sd"); // SD card and filesystem (mosi, miso, sck, cs)
-Nav_Switch myNav(p16, p10, p11, p9, p12); //pin order on Sparkfun breakout. move U from p13 to p16 so we can use another Serial to communicate with mbed
-DigitalIn pb(p15); // push button for player misisle fire
+//Nav_Switch myNav(p16, p10, p11, p9, p12); //pin order on Sparkfun breakout. move U from p13 to p16 so we can use another Serial to communicate with mbed
+DigitalIn pb(p20); // push button for player misisle fire
 Serial pc(USBTX, USBRX);
 Serial secondMbed(p13, p14);
 PwmOut red(p21); // added to dim and brighten red LED -- Brice
 PwmOut green(p22); // added to dim and brighten green LED -- Brice
 PwmOut blue(p23); // added to dim and brighten blue LED -- Brice
+SparkfunAnalogJoystick stick(p15, p16, p17); // Sparkfun analog joystick to replace the tactile switch (menu control and more fluid control of ship)
 // Initialize all global enemy objects
 enemy_t enemy_1;
 enemy_t enemy_2;
@@ -115,8 +119,8 @@ volatile int numPlayers = 1;
 //volatile bool second_player_ready = false;
 volatile bool begin_game2 = false;
 volatile int numWins = 0;
-volatile bool two_player_win = false;
-volatile bool two_player_lose = false;
+//volatile bool two_player_win = false;
+//volatile bool two_player_lose = false;
 Timer bestTimer;
 Mutex SDLock;
 Mutex mbedLock;
@@ -796,9 +800,11 @@ int main() {
             // Brice added this in order to move the cursor through the menu options
             uLCD.locate(level_cursor_x_pos, level_cursor_y_pos);
             uLCD.printf("  ");
-            if (myNav.down() && level_cursor_y_pos < level_cursor_y_pos_end) {
+            //if (myNav.down() && level_cursor_y_pos < level_cursor_y_pos_end) {
+            if ((stick.angle() <= 280 && stick.angle() >= 260) && level_cursor_y_pos < level_cursor_y_pos_end) {
                 level_cursor_y_pos += 2;
-            } else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
+            //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
+            } else if ((stick.angle() <= 100 && stick.angle() >= 80) && level_cursor_y_pos > level_cursor_y_pos_start) {
                 level_cursor_y_pos -= 2;
             }
             // end of movable cursor
@@ -938,16 +944,20 @@ int main() {
             update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
 
             // Player Movement checked with navigation switch
-            if (myNav.left() && ((player.player_blk_x-3) > 0)) 
+            //if (myNav.left() && ((player.player_blk_x-3) > 0))
+            float stickDist = stick.xAxis();
+            if ((stickDist < 0.0) && (player.player_blk_x + stickDist > 0.0))
             {
                 player_erase(&player);
-                player.player_blk_x -= 3;
+                //player.player_blk_x -= 3;
+                player.player_blk_x += (int)(stickDist*3);
                 player_show(&player);
             } 
-            else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width))) 
+            //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width)))
+            else if ((stickDist > 0.0) && ((player.player_blk_x + stickDist) < (128 - player.player_width))) 
             {
                 player_erase(&player);
-                player.player_blk_x += 3;
+                player.player_blk_x += (int)(stickDist*3);
                 player_show(&player);
             }
 
@@ -1162,16 +1172,32 @@ int main() {
             update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
 
             // Player Movement checked with navigation switch
-            if (myNav.left() && ((player.player_blk_x-3) > 0)) 
+            //if (myNav.left() && ((player.player_blk_x-3) > 0)) 
+            //{
+            //    player_erase(&player);
+            //    player.player_blk_x -= 3;
+            //    player_show(&player);
+            //} 
+            //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width))) 
+            //{
+            //    player_erase(&player);
+            //    player.player_blk_x += 3;
+            //    player_show(&player);
+            //}
+            //if (myNav.left() && ((player.player_blk_x-3) > 0))
+            float stickDist = stick.xAxis();
+            if ((stickDist < 0.0) && (player.player_blk_x + stickDist > 0.0))
             {
                 player_erase(&player);
-                player.player_blk_x -= 3;
+                //player.player_blk_x -= 3;
+                player.player_blk_x += (int)(stickDist);
                 player_show(&player);
             } 
-            else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width))) 
+            //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width)))
+            else if ((stickDist > 0.0) && ((player.player_blk_x + stickDist) < (128 - player.player_width))) 
             {
                 player_erase(&player);
-                player.player_blk_x += 3;
+                player.player_blk_x += (int)(stickDist);
                 player_show(&player);
             }
 

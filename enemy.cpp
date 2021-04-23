@@ -4,6 +4,8 @@
 void draw_enemy(int blk_x, int blk_y, int enemy_color, int e_width, int e_height)
 {
     uLCD.filled_rectangle(blk_x,blk_y,blk_x+e_width,blk_y-e_height,enemy_color);
+    //const int* colors = [
+    //uLCD.BLIT(blk_x, blk_y, e_width, e_height, 
 }
 
 void erase_enemy(int blk_x, int blk_y, int enemy_color, int e_width, int e_height)
