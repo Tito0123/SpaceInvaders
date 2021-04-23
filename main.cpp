@@ -809,13 +809,14 @@ int main() {
             uLCD.locate(level_cursor_x_pos, level_cursor_y_pos);
             uLCD.printf("  ");
             //if (myNav.down() && level_cursor_y_pos < level_cursor_y_pos_end) {
+            // Control menu with Analog Joystick
             if ((stick.angle() <= 280 && stick.angle() >= 260) && level_cursor_y_pos < level_cursor_y_pos_end) {
                 level_cursor_y_pos += 2;
             //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
             } else if ((stick.angle() <= 100 && stick.angle() >= 80) && level_cursor_y_pos > level_cursor_y_pos_start) {
                 level_cursor_y_pos -= 2;
             }
-            
+            // Control Menu with IMU
             if (IMU.accelAvailable()) {
                 IMU.readAccel();
                 accelY = IMU.calcAccel(IMU.ay);
@@ -965,6 +966,21 @@ int main() {
 
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
+            // With joystick click, change color of player from GREEN -> BLUE -> PINK -> PURPLE -> YELLOW (and loop).
+            if (stick.button()) { 
+                if (player.player_color == 0x00FF00) { // if GREEN (start)
+                    player.player_color = 0x0000FF; // BLUE
+                } else if (player.player_color == 0x0000FF) { // if BLUE
+                    player.player_color = 0xFFC0CB; // pink. hot pink: 0xFF69B4
+                } else if (player.player_color == 0xFFC0CB) { // if pink
+                    player.player_color = 0x800080; // Purple: 0x800080. periwinkle purple: 0xCCCCFF
+                } else if (player.player_color == 0x800080) { // if purple
+                    player.player_color = 0xFFFF00; // yellow. metallic gold: 0xD4AF37
+                } else if (player.player_color == 0xFFFF00) { // if yellow
+                    player.player_color = 0x00FF00; // set back to GREEN
+                }
+            }
+            // Control Player with Analog Joystick -- Brice    
             float stickDist = stick.xAxis();
             if ((stickDist < 0.0) && (player.player_blk_x + stickDist*3 > 0.0))
             {
@@ -980,6 +996,7 @@ int main() {
                 player.player_blk_x += (int)(stickDist*3);
                 player_show(&player);
             }
+            // Control Player with IMU -- Brice
             float accelX = 0.0; // x acceleration
             if (IMU.accelAvailable()) {
                 IMU.readAccel();
