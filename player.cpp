@@ -6,6 +6,7 @@
 #define PINK 0xFFC0CB
 #define PURPLE 0x800080
 #define YELLOW 0xFFFF00
+#define RED 0xFF0000
 // Modified from the RPG Game from ECE 2035. Draw more complex player object (with changing color).
 void draw_img(int u, int v, int width, int height, const char* img)
 {
@@ -17,6 +18,7 @@ void draw_img(int u, int v, int width, int height, const char* img)
         else if (img[i] == 'P') colors[i] = PINK;
         else if (img[i] == 'U') colors[i] = PURPLE;
         else if (img[i] == 'Y') colors[i] = YELLOW;
+        else if (img[i] == 'R') colors[i] = RED;
         else colors[i] = BLACK;
     }
     uLCD.BLIT(u, v, width, height, colors);
@@ -35,6 +37,8 @@ void draw_player_object(int blk_x, int blk_y, int player_color, int p_width, int
         colors = "000000P00000000000PPP0000000000PPP000000PPPPPPPPPPP0PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP";
     } else if (player_color == PURPLE) {
         colors = "000000U00000000000UUU0000000000UUU000000UUUUUUUUUUU0UUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU";
+    } else if (player_color == RED) {
+        colors = "000000R00000000000RRR0000000000RRR000000RRRRRRRRRRR0RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR";
     } else {
         colors = "000000Y00000000000YYY0000000000YYY000000YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY";
     }

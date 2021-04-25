@@ -1130,15 +1130,22 @@ int main() {
                 }
                 
             }
-            
+            int prevColor;
             // checks if player was hit
             if (hit_player)
             {
                 // updates lives
                 if (level == 1) {
                     lives1 -= 1;
+                    prevColor = player.player_color;
+                    player_erase(&player);
+                    player.player_color = 0xFF0000; // briefly flash the player red.
+                    player_show(&player);
                     Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
-                    hit_player = 0;
+                    player_erase(&player);
+                    player.player_color = prevColor; // briefly flash the player red.
+                    player_show(&player);
+                    hit_player = 0; 
                     player_show(&player);
                     player.status = PLAYER_ALIVE;
                 
@@ -1147,7 +1154,15 @@ int main() {
                     uLCD.printf("Lives:%i", lives1);
                 } else if (level == 2) {
                     lives2 -= 1;
+                    prevColor = player.player_color;
+                    player_erase(&player);
+                    player.player_color = 0xFF0000; // briefly flash the player red.
+                    player_show(&player);
                     Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    player_erase(&player);
+                    player.player_color = prevColor; // briefly flash the player red.
+                    player_show(&player);
+                    //Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                     hit_player = 0;
                     player_show(&player);
                     player.status = PLAYER_ALIVE;
@@ -1157,7 +1172,15 @@ int main() {
                     uLCD.printf("Lives:%i", lives2);
                 } else if (level == 3) {
                     lives3 -= 1;
+                    prevColor = player.player_color;
+                    player_erase(&player);
+                    player.player_color = 0xFF0000; // briefly flash the player red.
+                    player_show(&player);
                     Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    player_erase(&player);
+                    player.player_color = prevColor; // briefly flash the player red.
+                    player_show(&player);
+                    //Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                     hit_player = 0;
                     player_show(&player);
                     player.status = PLAYER_ALIVE;
