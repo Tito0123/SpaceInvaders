@@ -1013,8 +1013,7 @@ int main() {
             }
             // Control Player with Analog Joystick -- Brice    
             float stickDist = stick.xAxis();
-            if ((stickDist < 0.0) && (player.player_blk_x + stickDist*3 > 0.0))
-            {
+            if ((stickDist < 0.0) && (player.player_blk_x + stickDist*3 > 0.0)){
                 player_erase(&player);
                 //player.player_blk_x -= 3;
                 player.player_blk_x += (int)(stickDist*3);
