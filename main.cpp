@@ -121,8 +121,9 @@ volatile int numPlayers = 1;
 //volatile bool second_player_ready = false;
 volatile bool begin_game2 = false;
 volatile int numWins = 0;
-volatile bool two_player_win = false;
-volatile bool two_player_lose = false;
+volatile bool two_player_win = false; // global for a two_player_win
+volatile bool two_player_lose = false; // global for a two_player_lose
+volatile bool win = false; // add win to global variables so that we can have LED effects and sound effects for a win
 Timer bestTimer;
 Mutex SDLock;
 Mutex mbedLock;
@@ -462,7 +463,17 @@ void playstart(void const *args)//Th
             }
         }
         
-        // players gameover voice if player loses
+        // victory music
+        while(win) {
+            SDLock.lock();
+            wave_file=fopen("/sd/wavfiles/victoryEdit2.wav", "r");
+            if(wave_file==NULL) pc.printf("explosion file open error!\n\n\r"); // added this for open error check
+            waver.play(wave_file);
+            fclose(wave_file);
+            SDLock.unlock();
+        }
+            
+        // gameover music
         while(gameover)
         {
             SDLock.lock();
@@ -529,10 +540,11 @@ void ledEffects(void const *args)//Th
                 red = 0.0;
                 green = 0.0;
                 blue = 0.0;
+                //red = 0.5;
+                //Thread::wait(200);
                 red = 0.5;
-                Thread::wait(200);
                 green = 0.15;
-                Thread::wait(200);
+                Thread::wait(300);
                 red = 0.0;
                 green = 0.0;
             }
@@ -555,6 +567,21 @@ void ledEffects(void const *args)//Th
                 Thread::wait(60);
                 red = 0.0;
             }
+            Thread::wait(500);
+        }
+        
+        while(win) {
+            for (float i = 0.0; i < 0.25; i = i + 0.05) {
+                green = i;
+                Thread::wait(10);
+            }
+            green = 0.25;
+            Thread::wait(300);
+            for (float i = 0.25; i > 0.0; i = i - 0.05) {
+                green = i;
+                Thread::wait(10);
+            }
+            green = 0.0;
             Thread::wait(500);
         }
         
@@ -774,6 +801,8 @@ int main() {
     int win_y_pos = 4; // congratulations label y-position
     int startover_x_pos = 3; // startover label x-position
     int startover_y_pos = 7; // startover label y-position
+    int newAnalogClick = 0; // to prevent the analog click from changing multiple skins with one click
+    int prevAnalogClick = 0; // to prevent the analog click from changing multiple skins with one click
     
     // intialize temporary score and current score
     int temp = 0;
@@ -967,7 +996,9 @@ int main() {
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
             // With joystick click, change color of player from GREEN -> BLUE -> PINK -> PURPLE -> YELLOW (and loop).
-            if (stick.button()) { 
+            prevAnalogClick = newAnalogClick;
+            newAnalogClick = stick.button();
+            if (newAnalogClick && !prevAnalogClick) { 
                 if (player.player_color == 0x00FF00) { // if GREEN (start)
                     player.player_color = 0x0000FF; // BLUE
                 } else if (player.player_color == 0x0000FF) { // if BLUE
@@ -1064,7 +1095,7 @@ int main() {
                 SDLock.unlock();
                 
                 
-                bool win = true; // sets win to true, for win screen
+                win = true; // sets win to true, for win screen
                 begin_game = false;
                 
                 // displays video clip ????
@@ -1268,7 +1299,7 @@ int main() {
             {
                 uLCD.cls();
                 
-                bool win = true; // sets win to true, for win screen
+                win = true; // sets win to true, for win screen
                 numWins += 1;
                 if (numWins == 3) {
                     //begin_game2 = false;  // Allow the mbed communication thread to change the begin_game2 bool to false after letting other mbed know.
