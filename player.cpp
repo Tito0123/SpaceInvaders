@@ -1,12 +1,13 @@
 #include "player.h"
 #include "missile.h"
-
+/*
 #define GREEN 0x00FF00
 #define BLUE 0x0000FF
 #define PINK 0xFFC0CB
 #define PURPLE 0x800080
 #define YELLOW 0xFFFF00
 #define RED 0xFF0000
+
 // Modified from the RPG Game from ECE 2035. Draw more complex player object (with changing color).
 void draw_img(int u, int v, int width, int height, const char* img)
 {
@@ -24,6 +25,7 @@ void draw_img(int u, int v, int width, int height, const char* img)
     uLCD.BLIT(u, v, width, height, colors);
     wait_us(250); // Recovery time!
 }
+*/
 
 void draw_player_object(int blk_x, int blk_y, int player_color, int p_width, int p_height)
 {

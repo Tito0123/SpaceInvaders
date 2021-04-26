@@ -3,6 +3,7 @@
 #include "wave_player.h"
 #include "enemy.h"
 #include "player.h"
+#include "barrier.h"
 #include "missile.h"
 #include "globals.h"
 #include "rtos.h"
@@ -100,6 +101,11 @@ enemy_t enemy_13;
 enemy_t enemy_14;
 enemy_t enemy_15;
 
+barrier_t barrier_1;
+barrier_t barrier_2;
+barrier_t barrier_3;
+barrier_t barrier_4;
+
 // Initialize variables
 // Brice added "volatile" here to protect global variables.
 volatile int numOfEnemies = 0;
@@ -145,7 +151,7 @@ void playstart(void const *args); // PUT BACK IN
 // Draws the enemies at the initial starting location    
 void draw_enemies_level()
 {
-    // Initialize local variables
+// Initialize local variables
     unsigned int start_x_pos = 12;
     unsigned int start_enemy_y_pos = 20; 
     numOfEnemies = 15;
@@ -216,11 +222,31 @@ void draw_enemies_level()
     enemyArray[14] = &enemy_15;
 }
 
+
+void draw_barriers_level() {
+        // Initialize local variables
+    unsigned int start_x_pos = 5;
+    unsigned int start_barrier_y_pos = 95; 
+    
+    // First Row of Enemies
+    barrier_init(&barrier_1,start_x_pos,start_barrier_y_pos,GREEN); // initialize x-pos and y-pos and color of enemy
+    barrier_show(&barrier_1); // displays the enemy on uLCD
+    
+    barrier_init(&barrier_2,start_x_pos+32,start_barrier_y_pos,GREEN);
+    barrier_show(&barrier_2);
+    
+    barrier_init(&barrier_3,start_x_pos+64,start_barrier_y_pos,GREEN);
+    barrier_show(&barrier_3);
+    
+    barrier_init(&barrier_4,start_x_pos+96,start_barrier_y_pos,GREEN);
+    barrier_show(&barrier_4);
+}
+
 // Draws the player at the initial starting location
 void draw_initial_player()
 {
     int start_x_pos = 59;
-    int start_y_pos = 110;
+    int start_y_pos = 120;
     
     player_init(&player,start_x_pos,start_y_pos,WHITE); // intialize x-pos and y-pos and color of player
     player_show(&player); // display player on uLCD
@@ -913,6 +939,9 @@ int main() {
         // Draw the player
         draw_initial_player();
         
+        // Draw the barriers
+        draw_barriers_level();
+        
         // sets the initial position of player missile and enemy missile (later updated)
         blk_x = player.player_blk_x+(player.player_width/2);
         blk_y = player.player_blk_y;
@@ -955,7 +984,17 @@ int main() {
             
             // move enemy
             enemy_motion();
-
+            // check barriers for player missile hit
+            if (missile.missile_blk_y+1-missile.missile_height >= barrier_1.barrier_blk_y
+                    && missile.missile_blk_y+1-missile.missile_height <= barrier_1.barrier_blk_y+barrier_1.barrier_height
+                    && missile.status == PLAYER_MISSILE_ACTIVE) 
+            {
+                check_barrier(&barrier_1, &missile);
+                check_barrier(&barrier_2, &missile);
+                check_barrier(&barrier_3, &missile);
+                check_barrier(&barrier_4, &missile);
+            }
+            
             // checks if player missile passes y-pos of row1
             if (missile.missile_blk_y+1-missile.missile_height <= enemy_1.enemy_blk_y
                     && missile.missile_blk_y+1-missile.missile_height >= enemy_1.enemy_blk_y-enemy_1.enemy_height) 
@@ -983,12 +1022,23 @@ int main() {
                 random_attack_gen();
             }
             
+            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
+            if (enemy_missile.missile_blk_y >= barrier_1.barrier_blk_y
+                    && enemy_missile.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
+            {
+                check_barrier(&barrier_1, &enemy_missile);
+                check_barrier(&barrier_2, &enemy_missile);
+                check_barrier(&barrier_3, &enemy_missile);
+                check_barrier(&barrier_4, &enemy_missile);
+            }
+            
             // checks if enemy missile passes y-pos of player
             if (enemy_missile.missile_blk_y >= player.player_blk_y
                     && enemy_missile.missile_blk_y <= player.player_blk_y+player.player_height)
             {
                 check_player_hit();
             }
+            
 
             update_missile_pos(&missile); // updates player missile position
             update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
