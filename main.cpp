@@ -160,50 +160,53 @@ void draw_enemies_level()
     numOfEnemies = 15;
     
     // First Row of Enemies
-    enemy_init(&enemy_1,start_x_pos,start_enemy_y_pos,WHITE); // initialize x-pos and y-pos and color of enemy
+      // First Row of Enemies
+    enemy_init(&enemy_1,start_x_pos,start_enemy_y_pos,RED); // initialize x-pos and y-pos and color of 
     enemy_show(&enemy_1); // displays the enemy on uLCD
     
-    enemy_init(&enemy_2,start_x_pos+15,start_enemy_y_pos,WHITE);
+    enemy_init(&enemy_2,start_x_pos+15,start_enemy_y_pos,RED);
     enemy_show(&enemy_2);
     
-    enemy_init(&enemy_3,start_x_pos+30,start_enemy_y_pos,WHITE);
+    enemy_init(&enemy_3,start_x_pos+30,start_enemy_y_pos,RED);
     enemy_show(&enemy_3);
     
-    enemy_init(&enemy_4,start_x_pos+45,start_enemy_y_pos,WHITE);
+    enemy_init(&enemy_4,start_x_pos+45,start_enemy_y_pos,RED);
     enemy_show(&enemy_4);
     
-    enemy_init(&enemy_5,start_x_pos+60,start_enemy_y_pos,WHITE);
+    enemy_init(&enemy_5,start_x_pos+60,start_enemy_y_pos,RED);
     enemy_show(&enemy_5);
     
     // Second Row of Enemies
-    enemy_init(&enemy_6,start_x_pos,start_enemy_y_pos+12,WHITE);
+    enemy_init(&enemy_6,start_x_pos,start_enemy_y_pos+12,RED);
     enemy_show(&enemy_6);
     
-    enemy_init(&enemy_7,start_x_pos+15,start_enemy_y_pos+12,WHITE);
+    enemy_init(&enemy_7,start_x_pos+15,start_enemy_y_pos+12,RED);
     enemy_show(&enemy_7);
     
-    enemy_init(&enemy_8,start_x_pos+30,start_enemy_y_pos+12,WHITE);
+    enemy_init(&enemy_8,start_x_pos+30,start_enemy_y_pos+12,RED);
     enemy_show(&enemy_8);
     
-    enemy_init(&enemy_9,start_x_pos+45,start_enemy_y_pos+12,WHITE);
+    enemy_init(&enemy_9,start_x_pos+45,start_enemy_y_pos+12,RED);
     enemy_show(&enemy_9);
     
-    enemy_init(&enemy_10,start_x_pos+60,start_enemy_y_pos+12,WHITE);
+    enemy_init(&enemy_10,start_x_pos+60,start_enemy_y_pos+12,RED);
     enemy_show(&enemy_10);
     
     // Third Row of Enemies
-    enemy_init(&enemy_11,start_x_pos,start_enemy_y_pos+24,WHITE);
+    enemy_init(&enemy_11,start_x_pos,start_enemy_y_pos+24,RED);
     enemy_show(&enemy_11);
     
-    enemy_init(&enemy_12,start_x_pos+15,start_enemy_y_pos+24,WHITE);
+    enemy_init(&enemy_12,start_x_pos+15,start_enemy_y_pos+24,RED);
     enemy_show(&enemy_12);
     
-    enemy_init(&enemy_13,start_x_pos+30,start_enemy_y_pos+24,WHITE);
+    enemy_init(&enemy_13,start_x_pos+30,start_enemy_y_pos+24,RED);
     enemy_show(&enemy_13);
     
-    enemy_init(&enemy_14,start_x_pos+45,start_enemy_y_pos+24,WHITE);
+    enemy_init(&enemy_14,start_x_pos+45,start_enemy_y_pos+24,RED);
     enemy_show(&enemy_14);
     
+    enemy_init(&enemy_15,start_x_pos+60,start_enemy_y_pos+24,RED);
+    enemy_show(&enemy_15);
     enemy_init(&enemy_15,start_x_pos+60,start_enemy_y_pos+24,WHITE);
     enemy_show(&enemy_15);
     
