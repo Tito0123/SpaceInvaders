@@ -1,16 +1,30 @@
 #include "enemy.h"
 #include "missile.h"
+#include "globals.h"
 
+// draws red enemy sprites instead of simple white squares
 void draw_enemy(int blk_x, int blk_y, int enemy_color, int e_width, int e_height)
 {
-    uLCD.filled_rectangle(blk_x,blk_y,blk_x+e_width,blk_y-e_height,enemy_color);
+    char *shapes;
+    //enemy_color = 0x00FF00;
+    if (enemy_color == 0xFF0000){
+    shapes = "0000RRR00000RRRRRRRRR0RRRRRRRRRRRRRR00R00RRRRRRRRRRRRRR000RR0RR00000RR000RR00RR000R000RR";
+    }
+   // uLCD.filled_rectangle(blk_x,blk_y,blk_x+e_width,blk_y-e_height,enemy_color);
+    //const int* colors = [
+    //uLCD.BLIT(blk_x, blk_y, e_width, e_height, 
+    
+    
+    draw_img(blk_x, blk_y, e_width,  e_height, shapes); // use uLCD.BLIT
+    //uLCD.filled_rectangle(blk_x,blk_y,blk_x+e_width,blk_y-e_height,enemy_color);
     //const int* colors = [
     //uLCD.BLIT(blk_x, blk_y, e_width, e_height, 
 }
 
 void erase_enemy(int blk_x, int blk_y, int enemy_color, int e_width, int e_height)
 {
-    uLCD.filled_rectangle(blk_x,blk_y,blk_x+e_width,blk_y-e_height,BACKGROUND_COLOR);
+    //uLCD.filled_rectangle(blk_x,blk_y,blk_x+e_width,blk_y-e_height,BACKGROUND_COLOR);
+    uLCD.filled_rectangle(blk_x - 2,blk_y,blk_x+11+2,blk_y+8+2,BACKGROUND_COLOR); // change the boundaries of the black rectangle to erase enemies better
 }
 
 int move_enemy(enemy_t * g, int MOVE_DOWN, int DIRECTION)
@@ -54,8 +68,8 @@ void enemy_init(enemy_t * g, unsigned int blk_x, unsigned int blk_y, unsigned in
     g->enemy_blk_x = blk_x;
     g->enemy_blk_y = blk_y;
     g->enemy_color = color;
-    g->enemy_width = 8;
-    g->enemy_height = 8;
+    g->enemy_width = 11; // make width of enemy 11
+    g->enemy_height = 8; // make height of enemy 8
     g->status = ENEMY_ALIVE;
 }
 
