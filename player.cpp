@@ -27,6 +27,7 @@ void draw_img(int u, int v, int width, int height, const char* img)
 }
 */
 
+// draw the player as a nicer looking sprite (closer to original game). Draw the sprite with the appropriately colored pixels.
 void draw_player_object(int blk_x, int blk_y, int player_color, int p_width, int p_height)
 {
     char* colors;
@@ -69,7 +70,7 @@ void player_init(player_t * g, int blk_x, int blk_y, int color)
     //g->player_height = 8;
     //g->player_width = 8;
     g->player_height = 8;
-    g->player_width = 13;
+    g->player_width = 13; // change width of player to 13 for a nicer looking sprite
     g->status = PLAYER_ALIVE;
 }
 

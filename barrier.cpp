@@ -23,6 +23,7 @@ void draw_img(int u, int v, int width, int height, const char* img)
 }
 */
 
+// draw barrier on uLCD and set the boolean array to keep track of non-destroyed pixels
 void draw_barrier_object(int blk_x, int blk_y, int barrier_color, int barrier_width, int barrier_height, barrier_t *g)
 {
     char* colors;
@@ -51,7 +52,7 @@ void draw_barrier_object(int blk_x, int blk_y, int barrier_color, int barrier_wi
          GGGG000000000000GGGG
          GGGG000000000000GGGG
          GGGG000000000000GGGG  */
-    // This initializes the boolean array of pixels to be 1 when the pixel is green and 0 when the pixel is black.
+    // This initializes the boolean array of pixels to be 1 when the pixel is green and 0 when the pixel is black. Keep track of destroyed pixels.
     for (int x = 0; x < 20; x++) {
         for (int y = 0; y < 20; y++) {
             g->barrierPixels[y*20 + x] = (colors[y*20 + x] == 'G');
@@ -65,7 +66,7 @@ void erase_barrier(int blk_x, int blk_y, int barrier_width, int barrier_height)
     uLCD.filled_rectangle(blk_x,blk_y,blk_x+barrier_width,blk_y+barrier_height,BACKGROUND_COLOR);
     
 }
-
+// initialize a barrier with height and width 20, color green, and 0s in the boolean array
 void barrier_init(barrier_t * g, int blk_x, int blk_y, int color)
 {
     g->barrier_blk_x = blk_x;
@@ -84,12 +85,14 @@ void barrier_show(barrier_t * g)
     draw_barrier_object(g->barrier_blk_x, g->barrier_blk_y, g->barrier_color, g->barrier_width, g->barrier_height, g);
 }
 
+// erase the barrier and set the boolean array to 0 so that missiles can go through this area.
 void barrier_erase(barrier_t *g)
 {
     erase_barrier(g->barrier_blk_x, g->barrier_blk_y, g->barrier_width, g->barrier_height);
     memset(g->barrierPixels, 0, sizeof(bool) * 20 * 20);
 }
 
+// check barrier for being hit by player or enemy missiles
 void check_barrier(barrier_t * g, missile_t * h)
 {
     //int barrier_died = 0;
@@ -139,14 +142,4 @@ void check_barrier(barrier_t * g, missile_t * h)
             }
         }
     }
-        //g->status = PLAYER_DEAD;
-        //player_died = 1;
-        // make sure to take into account both player and enemy missile types...
-        //if (h->status == PLAYER_MISSILE_ACTIVE) {
-        //    h->status = PLAYER_MISSILE_EXPLODED; // missile explodes
-        //} else {
-        //    h->status = ENEMY_MISSILE_EXPLODED; // missile explodes.
-        //}                        
-    //}  
-    //return player_died;
 }

@@ -11,6 +11,7 @@
 #include "LSM9DS1.h"
 #include <string>
 
+// Navigation Switch replaced with Analog Joystick and IMU
 /* ==== Navigation Switch ===== */
 /*
 class Nav_Switch
@@ -77,13 +78,13 @@ wave_player waver(&DACout); // wav player
 SDFileSystem sd(p5, p6, p7, p8, "sd"); // SD card and filesystem (mosi, miso, sck, cs)
 //Nav_Switch myNav(p16, p10, p11, p9, p12); //pin order on Sparkfun breakout. move U from p13 to p16 so we can use another Serial to communicate with mbed
 DigitalIn pb(p20); // push button for player misisle fire
-Serial pc(USBTX, USBRX);
-RawSerial secondMbed(p13, p14);
-PwmOut red(p21); // added to dim and brighten red LED -- Brice
-PwmOut green(p22); // added to dim and brighten green LED -- Brice
-PwmOut blue(p23); // added to dim and brighten blue LED -- Brice
+Serial pc(USBTX, USBRX); // communicate with pc (for debugging)
+RawSerial secondMbed(p13, p14); // potentially communicate with a second mbed for 2 player.
+PwmOut red(p21); // added to dim and brighten red LED (in RGB LED) -- Brice
+PwmOut green(p22); // added to dim and brighten green LED (in RGB LED) -- Brice
+PwmOut blue(p23); // added to dim and brighten blue LED (in RGB LED) -- Brice
 SparkfunAnalogJoystick stick(p15, p16, p17); // Sparkfun analog joystick to replace the tactile switch (menu control and more fluid control of ship)
-LSM9DS1 IMU(p9, p10, 0xD6, 0x3C);
+LSM9DS1 IMU(p9, p10, 0xD6, 0x3C); // IMU added. Use the IMU accelerometer for a second optional tilt control for menu and ship.
 // Initialize all global enemy objects
 enemy_t enemy_1;
 enemy_t enemy_2;
@@ -101,6 +102,7 @@ enemy_t enemy_13;
 enemy_t enemy_14;
 enemy_t enemy_15;
 
+// initialize all global barrier objects.
 barrier_t barrier_1;
 barrier_t barrier_2;
 barrier_t barrier_3;
@@ -108,30 +110,30 @@ barrier_t barrier_4;
 
 // Initialize variables
 // Brice added "volatile" here to protect global variables.
-volatile int numOfEnemies = 0;
-volatile int ENEMY_MOVE = 1; 
-volatile int MOVE_DOWN = 0;
-volatile int DIRECTION = 1;
-volatile int firing_col = 0;
-volatile int hit_player = 0;
-volatile bool lose = false;
+volatile int numOfEnemies = 0; // number of enemies
+volatile int ENEMY_MOVE = 1; // enemy moves
+volatile int MOVE_DOWN = 0; // enemies move down
+volatile int DIRECTION = 1; // direction of movement
+volatile int firing_col = 0; // col down which missiles are fired
+volatile int hit_player = 0; // determines if player was hit
+volatile bool lose = false; // determines if player loses the game
 volatile int lives1 = 3; // number of lives in level 1
 volatile int lives2 = 2; // number of lives in level 2
 volatile int lives3 = 1; // number of lives in level 3
 volatile int level = 1; // the level, number of lives/difficulty
-volatile bool game_menu = false;
-volatile bool begin_game = false;
-volatile bool gameover = false;
+volatile bool game_menu = false; // boolean to determine if in the game_menu state
+volatile bool begin_game = false; // boolean to determine if the game has begun
+volatile bool gameover = false; // boolean to determine if the game was lost (game_over)
 //volatile int numPlayers = 1; // ONLY NEEDED FOR 2 PLAYER
-//volatile bool first_player_ready = false;
-//volatile bool second_player_ready = false;
-//volatile bool begin_game2 = false; // ONLY NEEDED FOR 2 PLAYER
-//volatile int numWins = 0; // MAY BE USED FOR 2 PLAYER
-//volatile bool two_player_win = false; // global for a two_player_win // ONLY NEEDED FOR 2 PLAYER
-//volatile bool two_player_lose = false; // global for a two_player_lose // ONLY NEEDED FOR 2 PLAYER
-volatile bool win = false; // add win to global variables so that we can have LED effects and sound effects for a win
-Timer bestTimer;
-Mutex SDLock;
+//volatile bool first_player_ready = false; // 2 Player: Keep track of each player being ready
+//volatile bool second_player_ready = false; // 2 Player: Keep track of each player being ready
+//volatile bool begin_game2 = false; // ONLY NEEDED FOR 2 PLAYER. 2 PLAYER game started
+//volatile int numWins = 0; // MAY BE USED FOR 2 PLAYER. Keep track of the number of wins each player got.
+//volatile bool two_player_win = false; // global for a two_player_win (win on this mbed) // ONLY NEEDED FOR 2 PLAYER
+//volatile bool two_player_lose = false; // global for a two_player_lose (loss on this mbed) // ONLY NEEDED FOR 2 PLAYER
+volatile bool win = false; // add win to global variables so that we can have LED effects and sound effects for a win. Keeps track of the victory state.
+Timer bestTimer; // Timer started when the game begins and stopped when the game ends. Used to determine if there's a new best time.
+Mutex SDLock; // Used to put a mutex lock on the SD card for audio or for reading/writing the best time to the SD card.
 //Mutex mbedLock; // MIGHT BE NEEDED FOR 2 PLAYER
 
 // Initialize global player object
@@ -223,11 +225,11 @@ void draw_enemies_level()
     enemyArray[14] = &enemy_15;
 }
 
-
+// Draw and initialize the 4 barriers that the player can hide behind.
 void draw_barriers_level() {
         // Initialize local variables
-    unsigned int start_x_pos = 5;
-    unsigned int start_barrier_y_pos = 95; 
+    unsigned int start_x_pos = 5; // where the first barrier begins
+    unsigned int start_barrier_y_pos = 95;  // the y position of the barriers.
     
     barrier_init(&barrier_1,start_x_pos,start_barrier_y_pos,GREEN); // initialize x-pos and y-pos and color of barrier
     barrier_show(&barrier_1); // displays the barrier on uLCD
@@ -237,36 +239,13 @@ void draw_barriers_level() {
     barrier_show(&barrier_3);
     barrier_init(&barrier_4,start_x_pos+96,start_barrier_y_pos,GREEN);
     barrier_show(&barrier_4);
-    /*
-    // LEVEL 1 ONLY BARRIERS
-    if (level == 1) {
-        barrier_init(&barrier_1,start_x_pos,start_barrier_y_pos,GREEN); // initialize x-pos and y-pos and color of enemy
-        barrier_show(&barrier_1); // displays the enemy on uLCD
-        barrier_init(&barrier_4, start_x_pos+96, start_barrier_y_pos, GREEN);
-        barrier_show(&barrier_4);
-    }
-    // BARRIER IN ALL LEVELS
-    barrier_init(&barrier_2,start_x_pos+32,start_barrier_y_pos,GREEN);
-    barrier_show(&barrier_2);
-    // LEVEL 1 and LEVEL 2 BARRIER
-    if (level == 1 || level == 2) {
-        barrier_init(&barrier_3,start_x_pos+64,start_barrier_y_pos,GREEN);
-        barrier_show(&barrier_3);
-    }
-    /*
-    if (level == 1) {
-        barrier_init(&barrier_4,start_x_pos+96,start_barrier_y_pos,GREEN);
-        barrier_show(&barrier_4);
-    }
-    */
-    //wait(0.5);
 }
 
 // Draws the player at the initial starting location
 void draw_initial_player()
 {
-    int start_x_pos = 59;
-    int start_y_pos = 120;
+    int start_x_pos = 59; // x pos of player (initial)
+    int start_y_pos = 120; // y pos of player
     
     player_init(&player,start_x_pos,start_y_pos,WHITE); // intialize x-pos and y-pos and color of player
     player_show(&player); // display player on uLCD
@@ -412,23 +391,11 @@ void enemy_motion()
             }
             MOVE_DOWN = 0; // sets MOVE_DOWN back to 0 to stop down movement until 
         }  
-        //if (level == 1) {
         ENEMY_MOVE += 1;
-        //} else if (level == 2) {
-        //    ENEMY_MOVE += 2;
-        //} else if (level == 3) {
-        //    ENEMY_MOVE += 3;
-        //}
     }
     else
     {
-        //if (level == 1) {
         ENEMY_MOVE += 1;
-        //} else if (level == 2) {
-        //    ENEMY_MOVE += 2;
-        //} else if (level == 3) {
-        //    ENEMY_MOVE += 3;
-        //}
     }
 }
 
@@ -482,10 +449,10 @@ void playstart(void const *args)//Th
     while(true) {
         FILE *wave_file;
         
-        // plays intro music during menu screen
+        // plays intro music during menu screen: Edited from https://freesound.org/people/VABsounds/sounds/443865/ 
         while(game_menu)
         {
-            SDLock.lock();
+            SDLock.lock(); // mutex lock the SD
             wave_file=fopen("/sd/wavfiles/futureEdit2.wav","r");
             if(wave_file==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
             waver.play(wave_file);
@@ -494,12 +461,12 @@ void playstart(void const *args)//Th
         }
         
         // Checks in game sound conditions
-        while(begin_game) // added OR begin_game2 so that music/sounds play during one-player or two-player // ADD || begin_game2 FOR 2 PLAYER
+        while(begin_game) // // ADD || begin_game2 FOR 2 PLAYER
         {
-            // play firing sound when the player fires
+            // play firing sound when the player fires: Edited from https://freesound.org/people/nsstudios/sounds/321102/
             if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
  
-                SDLock.lock();
+                SDLock.lock(); // mutex lock the SD
                 wave_file=fopen("/sd/wavfiles/laserEdit.wav","r");
                 if(wave_file==NULL) pc.printf("laser file open error!\n\n\r"); // added this for open error check
  
@@ -508,10 +475,10 @@ void playstart(void const *args)//Th
                 SDLock.unlock();
             }
             
-            // if player hit, play hit sound
+            // if player hit, play hit sound. Edited from https://freesound.org/people/tcpp/sounds/77339/ 
             if (hit_player)
             {
-                SDLock.lock();
+                SDLock.lock(); // mutex lock the SD
                 wave_file=fopen("/sd/wavfiles/bigExplosionEdit2.wav","r");
                 if(wave_file==NULL) pc.printf("explosion file open error!\n\n\r"); // added this for open error check
                 waver.play(wave_file);
@@ -520,9 +487,9 @@ void playstart(void const *args)//Th
             }
         }
         
-        // victory music
+        // victory music: Edited from https://freesound.org/people/honeybone82/sounds/513253/ 
         while(win) {
-            SDLock.lock();
+            SDLock.lock(); // mutex lock the SD
             wave_file=fopen("/sd/wavfiles/victoryEdit2.wav", "r");
             if(wave_file==NULL) pc.printf("explosion file open error!\n\n\r"); // added this for open error check
             waver.play(wave_file);
@@ -530,10 +497,10 @@ void playstart(void const *args)//Th
             SDLock.unlock();
         }
             
-        // gameover music
+        // gameover music: Edited from https://freesound.org/people/themusicalnomad/sounds/253886/ 
         while(gameover)
         {
-            SDLock.lock();
+            SDLock.lock(); // mutex lock the SD
             wave_file=fopen("/sd/wavfiles/comicalgameoverEdit.wav","r");
             if(wave_file==NULL) pc.printf("gameover file open error!\n\n\r"); // added this for open error check
             waver.play(wave_file);
@@ -549,7 +516,7 @@ void ledEffects(void const *args)//Th
 {   //Depending on the state of the game,
     //generate different patterns/colors of lighting
     while(1) {
-        // gradually increases and decreases each color independently. (A chill build up effect?)
+        // gradually brightens and dims each color independently (maximum of 0.5). (A chill build up effect?)
         while(game_menu)
         {
             red = 0.0;
@@ -589,10 +556,10 @@ void ledEffects(void const *args)//Th
             }
             blue = 0.0;
         }
-        // Checks in game sound conditions
-        while(begin_game) // added OR begin_game2 so that music/sounds play during one-player or two-player ADD || begin_game2 FOR 2 PLAYER
+        // Checks in game lighting conditions
+        while(begin_game) // ADD || begin_game2 FOR 2 PLAYER
         {
-            // play firing sound when the player fires
+            // play firing sound when the player fires. SEEMS TO BE HIT OR MISS RN
             if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
                 red = 0.0;
                 green = 0.0;
@@ -606,7 +573,7 @@ void ledEffects(void const *args)//Th
                 green = 0.0;
             }
             
-            // if player hit, play hit sound
+            // if player hit, flash a red led. (0.5 maximum)
             if (hit_player)
             {
                 red = 0.0;
@@ -627,6 +594,7 @@ void ledEffects(void const *args)//Th
             Thread::wait(500);
         }
         
+        // during a win, slowly brighten the green LED, hold it at 0.25 and then dim it.
         while(win) {
             for (float i = 0.0; i < 0.25; i = i + 0.05) {
                 green = i;
@@ -642,7 +610,7 @@ void ledEffects(void const *args)//Th
             Thread::wait(500);
         }
         
-        // players gameover voice if player loses
+        // during a gameover, slowly brighten the red LED, hold it at 0.25, and then dim it
         while(gameover)
         {
             for (float i = 0.0; i < 0.25; i = i + 0.05) {
@@ -768,17 +736,15 @@ void mbedMaster(void const *args) {
 }
 */
 
-
 int main() {
-     //pc.printf("in main");
-     IMU.begin();
-     if (!IMU.begin()) {
+     IMU.begin(); // start the IMU
+     if (!IMU.begin()) { // print error message if error with IMU
          pc.printf("Failed to communicate with IMU\n\r");
     }
-    IMU.calibrate(1);
+    IMU.calibrate(1); // calibrate the IMU
      // Initialization of Setup variables
      int blk_x, blk_y;
-     pb.mode(PullUp);
+     pb.mode(PullUp); // set pushbutton to PullUp mode
      
      Thread thread(playstart); // intializes the thread to play sound
      // Should only have the Slave thread uncommented if second player.
@@ -786,10 +752,11 @@ int main() {
      //Thread thread2(mbedSlave); // uncommented if second player -- Brice
      //Thread thread3(mbedMaster); // uncommented if first player -- Brice
      Thread thread4(ledEffects); // thread added for LED lighting effects -- Brice
-     secondMbed.baud(9600);
-     uLCD.baudrate(3000000); // set to 3000000 to increase smooth gameplay
+     //secondMbed.baud(9600); // set the secondMbed serial baud rate to 9600. Two-player only.
+     uLCD.baudrate(3000000); // set to 3000000 (the maximum baud rate for the LCD) to increase smooth gameplay
      
      // Initialization of Game Menu variables
+     // Additional globals added for two-player and one-player capabilities (by Brice)
     const int title_x_pos = 2; // initial x-pos of title
     const int title_y_pos = 3; // initial y-pos of title
     int start_label_x_pos = 7; // start label x-pos
@@ -811,16 +778,18 @@ int main() {
     int temp = 0;
     int score = 0;
      
-    // Additional globals added for two-player and one-player capabilities (by Brice)
+     // variables and code used to read the best time from the SD card and store in storedTime for display on the LCD
+     // idea for best-time reading and updating: https://os.mbed.com/questions/75718/i-want-to-assign-int-value-saved-in-sd-t/
     char buffer[3] = {0};
     char c = {0};
     char *token;
     int i = 0;
     int storedTime = 999;
-    SDLock.lock();
+    SDLock.lock(); // mutex lock
     FILE *sdtime;
-    sdtime=fopen("/sd/besttime.txt","r");
+    sdtime=fopen("/sd/besttime.txt","r"); // open besttime.txt file
     if(sdtime==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
+    // read the characters for the best time stored in besttime.txt from SD card and store in buffer
     while ((c != '\n') && (i < 3)) {
         c = fgetc(sdtime);
         buffer[i] = c;
@@ -829,7 +798,7 @@ int main() {
     fclose(sdtime);
     SDLock.unlock();
     token = strtok(buffer, "\n");
-    storedTime = atoi(token); // convert string from file to integer
+    storedTime = atoi(token); // convert string from file to integer. this is the stored best time.
     // Begin game loop
     while(1)
     {
@@ -849,53 +818,32 @@ int main() {
         // Brice moved this out of the loop since it shouldn't change 
         //uLCD.locate(title_x_pos,title_y_pos); // "SPACE INVADERS" title position
         //uLCD.printf("SPACE INVADERS"); // Title
-        // Implementation of Game Menu
-        
-        //char buffer[3] = {0};
-//        char c = {0};
-//        char *token;
-//        int i = 0;
-//        int storedTime = 999;
-//        SDLock.lock();
-//        FILE *sdtime;
-//        sdtime=fopen("/sd/besttime.txt","r");
-//        if(sdtime==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
-//        while ((c != '\n') && (i < 3)) {
-//            c = fgetc(sdtime);
-//            buffer[i] = c;
-//            i++;
-//        }
-//        fclose(sdtime);
-//        SDLock.unlock();
-//        token = strtok(buffer, "\n");
-//        storedTime = atoi(token); // convert string from file to integer
         // Implementation of game_menu
         while(game_menu) 
         {
             float accelY = 0.0; // y acceleration
-            //float accelZ = 0.0; // z acceleration
             // Brice added this in order to move the cursor through the menu options
             uLCD.locate(level_cursor_x_pos, level_cursor_y_pos);
             uLCD.printf("  ");
-            //if (myNav.down() && level_cursor_y_pos < level_cursor_y_pos_end) {
+            //if (myNav.down() && level_cursor_y_pos < level_cursor_y_pos_end) { // for previous Nav switch
             // Control menu with Analog Joystick
             if ((stick.angle() <= 280 && stick.angle() >= 260) && level_cursor_y_pos < level_cursor_y_pos_end) {
-                level_cursor_y_pos += 2;
+                level_cursor_y_pos += 2; // move cursor down if analog is pushed down. (and don't let it go past bottom option).
             //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
             } else if ((stick.angle() <= 100 && stick.angle() >= 80) && level_cursor_y_pos > level_cursor_y_pos_start) {
-                level_cursor_y_pos -= 2;
+                level_cursor_y_pos -= 2; // move cursor up if analog is pushed up (and don't let it go past top option)
             }
-            // Control Menu with IMU
+            // Control Menu with IMU. Read the y acceleration if it can.
             if (IMU.accelAvailable()) {
                 IMU.readAccel();
                 accelY = IMU.calcAccel(IMU.ay);
                 //pc.printf("Calc Accel: %f", accelY);
             }
             if ((accelY >= 0.25) && level_cursor_y_pos < level_cursor_y_pos_end) {
-                level_cursor_y_pos += 2;
-            //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
+                level_cursor_y_pos += 2; // move cursor down if tilted down (and don't let go past bottom option).
+            //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) { // nav switch remnant.
             } else if ((accelY <= -0.25) && level_cursor_y_pos > level_cursor_y_pos_start) {
-                level_cursor_y_pos -= 2;
+                level_cursor_y_pos -= 2; // move cursor up if tilted up (and don't let go past top option).
             }
             // end of movable cursor
             uLCD.locate(level_cursor_x_pos,level_cursor_y_pos); // draws cursor next to "START" label
@@ -904,39 +852,34 @@ int main() {
             uLCD.locate(title_x_pos,title_y_pos); // "SPACE INVADERS" title position
             uLCD.printf("SPACE INVADERS"); // Title
             
-            //uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position
+            //uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position // original menu option.
             //uLCD.printf("ONE-PLAYER");
             
-            //uLCD.locate(start_label_x_pos,start_label_y_pos + 1);
-            //uLCD.printf("TWO-PLAYER");
-            
-            uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position
+            uLCD.locate(start_label_x_pos,start_label_y_pos); // "START" label position. LEVEL 1: Easiest level
             uLCD.printf("LEVEL 1");
             
-            uLCD.locate(start_label_x_pos,start_label_y_pos + 2);
+            uLCD.locate(start_label_x_pos,start_label_y_pos + 2); // "LEVEL 2" level. Medium difficulty.
             uLCD.printf("LEVEL 2");
             
-            uLCD.locate(start_label_x_pos,start_label_y_pos + 4);
+            uLCD.locate(start_label_x_pos,start_label_y_pos + 4); // "LEVEL 3" level. Hardest difficulty.
             uLCD.printf("LEVEL 3");
             
             //uLCD.locate(start_label_x_pos, start_label_y_pos + 6);
             //uLCD.printf("TWO-PLAYER");
             
             uLCD.locate(2,13);
-            uLCD.printf("Best time: %d s", storedTime);
+            uLCD.printf("Best time: %d s", storedTime); // print the stored best time at the bottom of the LCD.
             // if pushbutton is pressed, game menu is exited and game begins
             if(!pb) 
             { 
                 game_menu = false;
                 if (level_cursor_y_pos == start_label_y_pos) {
                     //numPlayers = 1;
-                    level = 1;
+                    level = 1; // select level 1
                 } else if (level_cursor_y_pos == start_label_y_pos + 2) {
-                    //numPlayers = 2;
-                    //pc.printf("num players: 2");
-                    level = 2;
+                    level = 2; // select level 2
                 } else if (level_cursor_y_pos == start_label_y_pos + 4) {
-                    level = 3;
+                    level = 3; // select level 3
                 }
                 //} else if (level_cursor_y_pos == start_label_y_pos + 6) { // USED FOR 2-PLAYER ONLY
                     //numPlayers = 2;
@@ -952,10 +895,10 @@ int main() {
         //} else {
         begin_game = true; // defaults begin_game to true
             
-            // Start timer to check for best time in single player.
+        // Start timer to check for best time in single player.
         bestTimer.start();
         //}
-        
+        // clear the screen to start drawing the level
         uLCD.cls();
 
         // Draw the enemies
@@ -966,10 +909,12 @@ int main() {
         
         // Draw the barriers
         draw_barriers_level();
+        // erase 2 leftmost and rightmost barriers if level 2 or 3 (harder)
         if (level == 2 || level == 3) {
             barrier_erase(&barrier_1);
             barrier_erase(&barrier_4);
         }
+        // erase the 3rd barrier if level 3 (even harder)
         if (level == 3) {
             barrier_erase(&barrier_3);
         }
@@ -981,7 +926,7 @@ int main() {
         int e_blk_y = 2;
         enemy_missile_init(&enemy_missile, e_blk_x, e_blk_y, WHITE);
         
-        // prints lives
+        // prints lives depending on which level was selected.
         if (level == 1) {
             uLCD.locate(0,0);
             uLCD.printf("Lives:%i", 3);
@@ -993,9 +938,9 @@ int main() {
             uLCD.printf("Lives:%i", 1);
         }
         //uLCD.locate(0,0);
-        //uLCD.printf("Lives:%i", lives);
+        //uLCD.printf("Lives:%i", lives); // original, basic lives
 
-        // prints score
+        // prints score (no competition possible since the score always ends as the same)
         uLCD.locate(9,0);
         uLCD.printf("Score:%i", score);
         
@@ -1006,7 +951,7 @@ int main() {
             temp = score;
             score = (15-numOfEnemies)*15;
             
-            // prints score if score changes
+            // prints score if score changes (score always ends at same number for win)
             if (score != temp)
             {
                 uLCD.locate(9,0);
@@ -1015,7 +960,8 @@ int main() {
             
             // move enemy
             enemy_motion();
-            // check barriers for player missile hit
+            
+            // check barriers for player missile hit. Player missile hit damages the barriers
             if (missile.missile_blk_y+1-missile.missile_height >= barrier_1.barrier_blk_y
                     && missile.missile_blk_y+1-missile.missile_height <= barrier_1.barrier_blk_y+barrier_1.barrier_height
                     && missile.status == PLAYER_MISSILE_ACTIVE) 
@@ -1066,7 +1012,7 @@ int main() {
                 */
             }
             
-            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
+            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit (damage them, erase blocks of them)
             if (enemy_missile.missile_blk_y >= barrier_1.barrier_blk_y
                     && enemy_missile.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
             {
@@ -1095,10 +1041,11 @@ int main() {
 
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
+            
             // With joystick click, change color of player from GREEN -> BLUE -> PINK -> PURPLE -> YELLOW (and loop).
             prevAnalogClick = newAnalogClick;
             newAnalogClick = stick.button();
-            if (newAnalogClick && !prevAnalogClick) { 
+            if (newAnalogClick && !prevAnalogClick) { // ensures that the button must be released and clicked again before the color changes again. 
                 if (player.player_color == 0x00FF00) { // if GREEN (start)
                     player.player_color = 0x0000FF; // BLUE
                 } else if (player.player_color == 0x0000FF) { // if BLUE
@@ -1119,7 +1066,7 @@ int main() {
                 player.player_blk_x += (int)(stickDist*3);
                 player_show(&player);
             } 
-            //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width)))
+            //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width))) // nav switch
             else if ((stickDist > 0.0) && ((player.player_blk_x + stickDist*3) < (128 - player.player_width))) 
             {
                 player_erase(&player);
@@ -1153,10 +1100,11 @@ int main() {
                 missile.status = PLAYER_MISSILE_ACTIVE;
             }
             
-            // checks if player destroyed all enemies
+            // checks if player destroyed all enemies (a win)
             if (numOfEnemies == 0)
             {
                 // idea for best-time reading and updating: https://os.mbed.com/questions/75718/i-want-to-assign-int-value-saved-in-sd-t/
+                // check the timer to see if there's a best time.
                 int time = bestTimer.read();
                 bestTimer.stop();
                 bestTimer.reset();
@@ -1166,10 +1114,11 @@ int main() {
                 char *token;
                 int i = 0;
                 int storedTime = 999;
-                SDLock.lock();
+                SDLock.lock(); // mutex lock SD
                 FILE *sdtime;
                 sdtime=fopen("/sd/besttime.txt","r");
                 if(sdtime==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
+                // read in characters from stored best time in SD and store in buffer
                 while ((c != '\n') && (i < 3)) {
                     c = fgetc(sdtime);
                     buffer[i] = c;
@@ -1178,6 +1127,7 @@ int main() {
                 token = strtok(buffer, "\n");
                 storedTime = atoi(token); // convert string from file to integer
                 fclose(sdtime);
+                // if the new time is less than the stored time, print "NEW BEST TIME" on LCD and the number of seconds recorded by the timer.
                 if (time < storedTime) {
                     uLCD.locate(2,10);
                     uLCD.printf("NEW BEST TIME!");
@@ -1185,7 +1135,7 @@ int main() {
                     uLCD.printf("%d seconds!", time);
                     sdtime = fopen("/sd/besttime.txt", "w");
                     if (sdtime != NULL) {
-                        fprintf(sdtime, "%d\r\n", time);
+                        fprintf(sdtime, "%d\r\n", time); // write the new best time to the SD card
                         fclose(sdtime);
                     } else {
                         pc.printf("write: failed!\r\n");
@@ -1195,9 +1145,9 @@ int main() {
                 
                 
                 win = true; // sets win to true, for win screen
-                begin_game = false;
+                begin_game = false; // ends game
                 
-                // displays video clip ????. Original intention here is a little obscure.
+                // displays video clip ????. Original intention here is a little obscure. Might be buggy.
                 /*
                 uLCD.cls();
                 uLCD.media_init();
@@ -1230,20 +1180,20 @@ int main() {
                 }
                 
             }
-            int prevColor;
+            int prevColor; // used to store the previous color of the player
             // checks if player was hit
             if (hit_player)
             {
                 // updates lives
-                if (level == 1) {
-                    lives1 -= 1;
+                if (level == 1) { 
+                    lives1 -= 1; // level 1 lives
                     prevColor = player.player_color;
                     player_erase(&player);
                     player.player_color = 0xFF0000; // briefly flash the player red.
                     player_show(&player);
                     Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                     player_erase(&player);
-                    player.player_color = prevColor; // briefly flash the player red.
+                    player.player_color = prevColor; // briefly flash the player red and RETURN TO THE PREVIOUS CHOSEN COLOR
                     player_show(&player);
                     hit_player = 0; 
                     player_show(&player);
@@ -1252,7 +1202,7 @@ int main() {
                 // prints updated lives number
                     uLCD.locate(0,0);
                     uLCD.printf("Lives:%i", lives1);
-                } else if (level == 2) {
+                } else if (level == 2) { // level 2 lives
                     lives2 -= 1;
                     prevColor = player.player_color;
                     player_erase(&player);
@@ -1260,7 +1210,7 @@ int main() {
                     player_show(&player);
                     Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                     player_erase(&player);
-                    player.player_color = prevColor; // briefly flash the player red.
+                    player.player_color = prevColor; // briefly flash the player red and return to previous color
                     player_show(&player);
                     //Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                     hit_player = 0;
@@ -1271,14 +1221,14 @@ int main() {
                     uLCD.locate(0,0);
                     uLCD.printf("Lives:%i", lives2);
                 } else if (level == 3) {
-                    lives3 -= 1;
+                    lives3 -= 1; // level 3 lives
                     prevColor = player.player_color;
                     player_erase(&player);
                     player.player_color = 0xFF0000; // briefly flash the player red.
                     player_show(&player);
                     Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                     player_erase(&player);
-                    player.player_color = prevColor; // briefly flash the player red.
+                    player.player_color = prevColor; // briefly flash the player red and return to previous color.
                     player_show(&player);
                     //Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
                     hit_player = 0;
@@ -1295,7 +1245,7 @@ int main() {
             if (lose || lives1 == 0 || lives2 == 0 || lives3 == 0)
             {    
                 begin_game = false; // set to false to end game
-                uLCD.cls();
+                uLCD.cls(); // clear the game screen
                 
                 gameover = true; // set to go to display gameover screen
                 
@@ -1326,6 +1276,10 @@ int main() {
         }
                 // game play loop
     /* TWO-PLAYER MODE: BUGGY, BUT THE PRIMITIVES ARE IN PLACE.
+    // I was able to get the two mbeds to send over the proper character codes to get 1 mbed to start the game
+    // in 2 player mode. When the 'W' character was received by this mbed, the game stopped with a loss.
+    // We lack hardware and time to fully test and work out all of the bugs here, but it is close to being
+    // a working feature with the primitives we've commented out here.
         while(begin_game2) 
         {
             temp = score;
@@ -1504,7 +1458,7 @@ int main() {
                 //begin_game = false;
                 
                 // displays video clip ????
-                /*
+                
                 uLCD.cls();
                 uLCD.media_init();
                 uLCD.set_sector_address(0x00, 0x00);
@@ -1537,7 +1491,7 @@ int main() {
                         game_menu = true;
                         Thread::wait(500); // changed from wait(0.5) to Thread::wait(500) since we're using threads
                     }
-                }/*
+                }
                 REMOVED THIS AND MADE THE WINNER THE FIRST TO 1 WIN
                 if (numWins == 3) {
                     two_player_win = true;
@@ -1561,8 +1515,8 @@ int main() {
                             }
                     }   
                 }
-                */
-                /*
+                
+                
             }
             int prevColor;
             // checks if player was hit
