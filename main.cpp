@@ -122,17 +122,17 @@ volatile int level = 1; // the level, number of lives/difficulty
 volatile bool game_menu = false;
 volatile bool begin_game = false;
 volatile bool gameover = false;
-volatile int numPlayers = 1;
+//volatile int numPlayers = 1; // ONLY NEEDED FOR 2 PLAYER
 //volatile bool first_player_ready = false;
 //volatile bool second_player_ready = false;
-volatile bool begin_game2 = false;
-volatile int numWins = 0;
-volatile bool two_player_win = false; // global for a two_player_win
-volatile bool two_player_lose = false; // global for a two_player_lose
+//volatile bool begin_game2 = false; // ONLY NEEDED FOR 2 PLAYER
+//volatile int numWins = 0; // MAY BE USED FOR 2 PLAYER
+//volatile bool two_player_win = false; // global for a two_player_win // ONLY NEEDED FOR 2 PLAYER
+//volatile bool two_player_lose = false; // global for a two_player_lose // ONLY NEEDED FOR 2 PLAYER
 volatile bool win = false; // add win to global variables so that we can have LED effects and sound effects for a win
 Timer bestTimer;
 Mutex SDLock;
-Mutex mbedLock;
+//Mutex mbedLock; // MIGHT BE NEEDED FOR 2 PLAYER
 
 // Initialize global player object
 player_t player;
@@ -229,24 +229,37 @@ void draw_barriers_level() {
     unsigned int start_x_pos = 5;
     unsigned int start_barrier_y_pos = 95; 
     
-    // First Row of Enemies
+    barrier_init(&barrier_1,start_x_pos,start_barrier_y_pos,GREEN); // initialize x-pos and y-pos and color of barrier
+    barrier_show(&barrier_1); // displays the barrier on uLCD
+    barrier_init(&barrier_2,start_x_pos+32,start_barrier_y_pos,GREEN);
+    barrier_show(&barrier_2);
+    barrier_init(&barrier_3,start_x_pos+64,start_barrier_y_pos,GREEN);
+    barrier_show(&barrier_3);
+    barrier_init(&barrier_4,start_x_pos+96,start_barrier_y_pos,GREEN);
+    barrier_show(&barrier_4);
+    /*
+    // LEVEL 1 ONLY BARRIERS
     if (level == 1) {
         barrier_init(&barrier_1,start_x_pos,start_barrier_y_pos,GREEN); // initialize x-pos and y-pos and color of enemy
         barrier_show(&barrier_1); // displays the enemy on uLCD
+        barrier_init(&barrier_4, start_x_pos+96, start_barrier_y_pos, GREEN);
+        barrier_show(&barrier_4);
     }
-    
+    // BARRIER IN ALL LEVELS
     barrier_init(&barrier_2,start_x_pos+32,start_barrier_y_pos,GREEN);
     barrier_show(&barrier_2);
-    
+    // LEVEL 1 and LEVEL 2 BARRIER
     if (level == 1 || level == 2) {
         barrier_init(&barrier_3,start_x_pos+64,start_barrier_y_pos,GREEN);
         barrier_show(&barrier_3);
     }
-    
+    /*
     if (level == 1) {
         barrier_init(&barrier_4,start_x_pos+96,start_barrier_y_pos,GREEN);
         barrier_show(&barrier_4);
     }
+    */
+    //wait(0.5);
 }
 
 // Draws the player at the initial starting location
@@ -399,12 +412,23 @@ void enemy_motion()
             }
             MOVE_DOWN = 0; // sets MOVE_DOWN back to 0 to stop down movement until 
         }  
-        
+        //if (level == 1) {
         ENEMY_MOVE += 1;
+        //} else if (level == 2) {
+        //    ENEMY_MOVE += 2;
+        //} else if (level == 3) {
+        //    ENEMY_MOVE += 3;
+        //}
     }
     else
     {
+        //if (level == 1) {
         ENEMY_MOVE += 1;
+        //} else if (level == 2) {
+        //    ENEMY_MOVE += 2;
+        //} else if (level == 3) {
+        //    ENEMY_MOVE += 3;
+        //}
     }
 }
 
@@ -470,7 +494,7 @@ void playstart(void const *args)//Th
         }
         
         // Checks in game sound conditions
-        while(begin_game || begin_game2) // added OR begin_game2 so that music/sounds play during one-player or two-player 
+        while(begin_game) // added OR begin_game2 so that music/sounds play during one-player or two-player // ADD || begin_game2 FOR 2 PLAYER
         {
             // play firing sound when the player fires
             if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
@@ -566,7 +590,7 @@ void ledEffects(void const *args)//Th
             blue = 0.0;
         }
         // Checks in game sound conditions
-        while(begin_game || begin_game2) // added OR begin_game2 so that music/sounds play during one-player or two-player 
+        while(begin_game) // added OR begin_game2 so that music/sounds play during one-player or two-player ADD || begin_game2 FOR 2 PLAYER
         {
             // play firing sound when the player fires
             if(!pb && missile.status == PLAYER_MISSILE_INACTIVE) {
@@ -636,70 +660,8 @@ void ledEffects(void const *args)//Th
         }
     }
 }
-/*
-// Thread added for mbed communication, which allows two-player -- Brice
-void mbedSend(void const *args) {
-    while(1) {
-        while(numPlayers == 1) Thread::yield(); // with one player, thread is unneeded and should yield.
-        while(!first_player_ready || !second_player_ready) { // while either player isn't ready, send a start code, and become ready
-        //if (!first_player_ready || !second_player_ready) {
-            mbedLock.lock();
-            secondMbed.putc('S');
-            mbedLock.unlock();
-            first_player_ready = true;
-            pc.printf("first player ready");
-            Thread::wait(1000);
-        //}            
-        //    if (secondMbed.readable()) { // read in a start code to know that the second player is ready (if the second player sends a start code)
-        //        if (secondMbed.getc() == 'S') {
-        //            second_player_ready = true;
-        //            pc.printf("second play ready");
-        //        }
-        //    }
-        //    Thread::wait(1000); // run once a second
-        }
-        if (two_player_win) { // if this player wins, notify the other mbed/player that they lost.
-            mbedLock.lock();
-            secondMbed.putc('W');
-            mbedLock.unlock();
-        }
-        //if (secondMbed.readable()) {
-        //    if (secondMbed.getc() == 'W') {
-        //        two_player_lose = true;
-        //    }
-        //}
-        Thread::wait(2000); // check twice a second for a win
-    }
-}
-*/
-/*
-void mbedReceive(void const *args) {
-    char rx;
-    while(1) {
-        rx = '0';
-        mbedLock.lock();
-        while(numPlayers == 1 || !secondMbed.readable()) {
-             mbedLock.unlock();
-             pc.printf("yielding");
-             Thread::yield(); // with one player, thread is unneeded and should yield.
-        }
-        rx = secondMbed.getc();
-        pc.printf("%c", rx);
-        mbedLock.unlock();
-        if (rx == 'S') {
-            second_player_ready = true;
-            pc.printf("second play ready");
-        }
-        //    Thread::wait(1000); // run once a second
-        //}
-        if (rx == 'W') {
-            two_player_lose = true;
-        }
-        Thread::wait(3000); // check twice a second for a win
-    }
-}
-*/
 
+// SLAVE AND MASTER THREADS BELOW ARE USED ONLY WITH 2 PLAYER (STILL BUGGY AND REQUIRES EXTRA HARDWARE)
 // UNCOMMENT THIS THREAD IF SECOND PLAYER AND COMMENT MASTER THREAD
 
 // The slave mbed device (second player) should uncomment this thread -- Brice
@@ -755,7 +717,7 @@ void mbedSlave(void const *args) {
 
 // UNCOMMENT THIS THREAD IF FIRST PLAYER AND COMMENT SLAVE THREAD
 // The master mbed device (second player) should uncomment this thread -- Brice
-
+/*
 void mbedMaster(void const *args) {
     char rx;
     while(1) {
@@ -804,7 +766,7 @@ void mbedMaster(void const *args) {
         Thread::wait(1000);
     }
 }
-
+*/
 
 
 int main() {
@@ -822,7 +784,7 @@ int main() {
      // Should only have the Slave thread uncommented if second player.
      // Should only have the Master thread uncommented if first player.
      //Thread thread2(mbedSlave); // uncommented if second player -- Brice
-     Thread thread3(mbedMaster); // uncommented if first player -- Brice
+     //Thread thread3(mbedMaster); // uncommented if first player -- Brice
      Thread thread4(ledEffects); // thread added for LED lighting effects -- Brice
      secondMbed.baud(9600);
      uLCD.baudrate(3000000); // set to 3000000 to increase smooth gameplay
@@ -835,7 +797,7 @@ int main() {
     int level_cursor_x_pos = 5; // level cursor x-position
     int level_cursor_y_pos_start = 7; // level cursor y-position
     //int level_cursor_y_pos = 7; // initial level_cursor_y_pos @ start -- Added by Brice for more menu options
-    int level_cursor_y_pos_end = 13; // BOTTOM CURSOR POS -- Added by Brice for more menu options
+    int level_cursor_y_pos_end = 11; // BOTTOM CURSOR POS -- Added by Brice for more menu options
     int gameover_x_pos = 5; // gameover label x-position
     int gameover_y_pos = 5; // gameover label y-position
     int win_x_pos = 2; // congratulations label x-position
@@ -957,10 +919,10 @@ int main() {
             uLCD.locate(start_label_x_pos,start_label_y_pos + 4);
             uLCD.printf("LEVEL 3");
             
-            uLCD.locate(start_label_x_pos, start_label_y_pos + 6);
-            uLCD.printf("TWO-PLAYER");
+            //uLCD.locate(start_label_x_pos, start_label_y_pos + 6);
+            //uLCD.printf("TWO-PLAYER");
             
-            uLCD.locate(2,15);
+            uLCD.locate(2,13);
             uLCD.printf("Best time: %d s", storedTime);
             // if pushbutton is pressed, game menu is exited and game begins
             if(!pb) 
@@ -975,23 +937,24 @@ int main() {
                     level = 2;
                 } else if (level_cursor_y_pos == start_label_y_pos + 4) {
                     level = 3;
-                } else if (level_cursor_y_pos == start_label_y_pos + 6) {
-                    numPlayers = 2;
-                    level = 1;
                 }
+                //} else if (level_cursor_y_pos == start_label_y_pos + 6) { // USED FOR 2-PLAYER ONLY
+                    //numPlayers = 2;
+                    //level = 1;
+                //}
                 Thread::wait(500); // changed this to Thread::wait ... originally wait(0.5);
             }
         }
-        while(numPlayers != 1 && !begin_game2) Thread::yield(); // added to force wait with two-player and one player not ready. -- added by Brice
-        if (numPlayers == 2 && begin_game2) {
-            numWins = 0;
-            bestTimer.start();
-        } else {
-            begin_game = true; // defaults begin_game to true
+        //while(numPlayers != 1 && !begin_game2) Thread::yield(); // added to force wait with two-player and one player not ready. -- added by Brice
+        //if (numPlayers == 2 && begin_game2) { // FOR 2-PLAYER ONLY
+          //  numWins = 0;
+          //  bestTimer.start();
+        //} else {
+        begin_game = true; // defaults begin_game to true
             
             // Start timer to check for best time in single player.
-            bestTimer.start();
-        }
+        bestTimer.start();
+        //}
         
         uLCD.cls();
 
@@ -1003,7 +966,13 @@ int main() {
         
         // Draw the barriers
         draw_barriers_level();
-        
+        if (level == 2 || level == 3) {
+            barrier_erase(&barrier_1);
+            barrier_erase(&barrier_4);
+        }
+        if (level == 3) {
+            barrier_erase(&barrier_3);
+        }
         // sets the initial position of player missile and enemy missile (later updated)
         blk_x = player.player_blk_x+(player.player_width/2);
         blk_y = player.player_blk_y;
@@ -1122,7 +1091,7 @@ int main() {
             
 
             update_missile_pos(&missile); // updates player missile position
-            update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
+            update_enemy_missile_pos(&enemy_missile, level); // updates enemy missile position
 
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
@@ -1356,6 +1325,7 @@ int main() {
 
         }
                 // game play loop
+    /* TWO-PLAYER MODE: BUGGY, BUT THE PRIMITIVES ARE IN PLACE.
         while(begin_game2) 
         {
             temp = score;
@@ -1427,7 +1397,7 @@ int main() {
             
 
             update_missile_pos(&missile); // updates player missile position
-            update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
+            update_enemy_missile_pos(&enemy_missile, level); // updates enemy missile position
 
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
@@ -1543,7 +1513,7 @@ int main() {
                 */
                 
                 //uLCD.cls();
-                
+                /*
                 // prints "Congratulations" on uLCD    
                 uLCD.locate(win_x_pos,win_y_pos);
                 uLCD.printf("CONGRATULATIONS!");
@@ -1592,7 +1562,7 @@ int main() {
                     }   
                 }
                 */
-                
+                /*
             }
             int prevColor;
             // checks if player was hit
@@ -1720,5 +1690,6 @@ int main() {
                     }
                 }
             }
-        }
+        }*/
     }
+}

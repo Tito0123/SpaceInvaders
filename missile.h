@@ -37,6 +37,6 @@ void enemy_missile_init(missile_t * g, int blk_x, int blk_y, int color);
 void missile_show(missile_t *g);
 void missile_erase(missile_t *g);
 void update_missile_pos(missile_t *g);
-void update_enemy_missile_pos(missile_t *g);
+void update_enemy_missile_pos(missile_t *g, int level);
 
 #endif //missile_H

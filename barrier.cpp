@@ -63,6 +63,7 @@ void draw_barrier_object(int blk_x, int blk_y, int barrier_color, int barrier_wi
 void erase_barrier(int blk_x, int blk_y, int barrier_width, int barrier_height)
 {
     uLCD.filled_rectangle(blk_x,blk_y,blk_x+barrier_width,blk_y+barrier_height,BACKGROUND_COLOR);
+    
 }
 
 void barrier_init(barrier_t * g, int blk_x, int blk_y, int color)
@@ -86,6 +87,7 @@ void barrier_show(barrier_t * g)
 void barrier_erase(barrier_t *g)
 {
     erase_barrier(g->barrier_blk_x, g->barrier_blk_y, g->barrier_width, g->barrier_height);
+    memset(g->barrierPixels, 0, sizeof(bool) * 20 * 20);
 }
 
 void check_barrier(barrier_t * g, missile_t * h)

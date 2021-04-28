@@ -1,5 +1,6 @@
 #include "missile.h"
 
+
 void draw_missile_object(int blk_x, int blk_y, int missile_color, int m_width, int m_height)
 {
     uLCD.filled_rectangle(blk_x,blk_y-1,blk_x+m_width,blk_y-m_height,missile_color);
@@ -31,7 +32,7 @@ void update_missile_pos(missile_t *g)
     }
 }
 
-void update_enemy_missile_pos(missile_t *g)
+void update_enemy_missile_pos(missile_t *g, int level)
 {
     if (g->missile_blk_y > 128)
     {
@@ -41,7 +42,17 @@ void update_enemy_missile_pos(missile_t *g)
     if (g->status == ENEMY_MISSILE_ACTIVE)
     {
         missile_erase(g);
-        g->missile_blk_y = g->missile_blk_y+1;
+        //g->missile_blk_y = g->missile_blk_y+1;
+        
+        // higher difficulties/levels have faster enemy missiles
+        if (level == 1) {
+            g->missile_blk_y = g->missile_blk_y+1;
+        } else if (level == 2) {
+            g->missile_blk_y = g->missile_blk_y+3;
+        } else if (level == 3) {
+            g->missile_blk_y = g->missile_blk_y+6;
+        }
+        
         missile_show(g);
     }
     else if (g->status == ENEMY_MISSILE_EXPLODED)
