@@ -78,7 +78,7 @@ SDFileSystem sd(p5, p6, p7, p8, "sd"); // SD card and filesystem (mosi, miso, sc
 //Nav_Switch myNav(p16, p10, p11, p9, p12); //pin order on Sparkfun breakout. move U from p13 to p16 so we can use another Serial to communicate with mbed
 DigitalIn pb(p20); // push button for player misisle fire
 Serial pc(USBTX, USBRX);
-Serial secondMbed(p13, p14);
+RawSerial secondMbed(p13, p14);
 PwmOut red(p21); // added to dim and brighten red LED -- Brice
 PwmOut green(p22); // added to dim and brighten green LED -- Brice
 PwmOut blue(p23); // added to dim and brighten blue LED -- Brice
@@ -115,10 +115,10 @@ volatile int DIRECTION = 1;
 volatile int firing_col = 0;
 volatile int hit_player = 0;
 volatile bool lose = false;
-volatile int lives1 = 3;
-volatile int lives2 = 2;
-volatile int lives3 = 1;
-volatile int level = 1;
+volatile int lives1 = 3; // number of lives in level 1
+volatile int lives2 = 2; // number of lives in level 2
+volatile int lives3 = 1; // number of lives in level 3
+volatile int level = 1; // the level, number of lives/difficulty
 volatile bool game_menu = false;
 volatile bool begin_game = false;
 volatile bool gameover = false;
@@ -140,6 +140,8 @@ player_t player;
 // Intialize global player and enemy missile
 missile_t missile; // player missile
 missile_t enemy_missile; // enemy missile
+missile_t enemy_missile2; // first extra enemy missile for level 2 (medium difficulty)
+missile_t enemy_missile3; // second extra enemy missile for level 3 (hard difficulty) -- 3 missiles out at one time.
 
 // Array of enemy objects
 enemy_t * enemyArray[15];
@@ -229,17 +231,23 @@ void draw_barriers_level() {
     unsigned int start_barrier_y_pos = 95; 
     
     // First Row of Enemies
-    barrier_init(&barrier_1,start_x_pos,start_barrier_y_pos,GREEN); // initialize x-pos and y-pos and color of enemy
-    barrier_show(&barrier_1); // displays the enemy on uLCD
+    if (level == 1) {
+        barrier_init(&barrier_1,start_x_pos,start_barrier_y_pos,GREEN); // initialize x-pos and y-pos and color of enemy
+        barrier_show(&barrier_1); // displays the enemy on uLCD
+    }
     
     barrier_init(&barrier_2,start_x_pos+32,start_barrier_y_pos,GREEN);
     barrier_show(&barrier_2);
     
-    barrier_init(&barrier_3,start_x_pos+64,start_barrier_y_pos,GREEN);
-    barrier_show(&barrier_3);
+    if (level == 1 || level == 2) {
+        barrier_init(&barrier_3,start_x_pos+64,start_barrier_y_pos,GREEN);
+        barrier_show(&barrier_3);
+    }
     
-    barrier_init(&barrier_4,start_x_pos+96,start_barrier_y_pos,GREEN);
-    barrier_show(&barrier_4);
+    if (level == 1) {
+        barrier_init(&barrier_4,start_x_pos+96,start_barrier_y_pos,GREEN);
+        barrier_show(&barrier_4);
+    }
 }
 
 // Draws the player at the initial starting location
@@ -308,8 +316,17 @@ void check_hit_enemy_row3()
 
 // Checks if player is hit
 void check_player_hit()
-{    
-    hit_player = check_player(&player, &enemy_missile); // checks if the missile hits the player and returns 1 if hit, 0 if not hit
+{   
+    if (level == 1) {
+        // checks if the missile hits the player and returns 1 if hit, 0 if not hit for level 3
+        hit_player = check_player(&player, &enemy_missile);
+    } else if (level == 2) {
+        // checks if the missile hits the player and returns 1 if hit, 0 if not hit for level 3
+        hit_player = (check_player(&player, &enemy_missile) || check_player(&player, &enemy_missile2));
+    } else if (level == 3) {
+        // checks if the missile hits the player and returns 1 if hit, 0 if not hit for level 3
+        hit_player = (check_player(&player, &enemy_missile) || check_player(&player, &enemy_missile2) || check_player(&player, &enemy_missile3));
+    }
 }
 
 // Randomly selects an enemy to fire and updates the position of where the missile will fire from
@@ -341,6 +358,64 @@ void random_attack_gen()
         enemy_missile.missile_blk_y = enemyArray[firing_col]->enemy_blk_y + enemyArray[firing_col]->enemy_height + 1;
         enemy_missile.status = ENEMY_MISSILE_ACTIVE;
     }
+    // second random missile for level 2   
+    if (level == 2 || level == 3) {
+        firing_col = rand() % 5; // selects a random column
+    
+        // first checks if the 3rd row closest to the player is alive
+        if (enemyArray[firing_col+10]->status == ENEMY_ALIVE)
+        {
+            // If alive, the enemy missile position is updated to the center of the enemy
+            enemy_missile2.missile_blk_x = enemyArray[firing_col+10]->enemy_blk_x + (enemyArray[firing_col+10]->enemy_width/2);
+            enemy_missile2.missile_blk_y = enemyArray[firing_col+10]->enemy_blk_y + enemyArray[firing_col+10]->enemy_height + 1;
+            enemy_missile2.status = ENEMY_MISSILE_ACTIVE; // sets the enemy missile as active
+        }
+        // if enemy at 3rd row is dead, checks the enemy in the 2nd row
+        else if (enemyArray[firing_col+5]->status == ENEMY_ALIVE)
+        {
+            // If alive, the enemy missile position is updated to the center of the enemy
+            enemy_missile2.missile_blk_x = enemyArray[firing_col+5]->enemy_blk_x + (enemyArray[firing_col+5]->enemy_width/2);
+            enemy_missile2.missile_blk_y = enemyArray[firing_col+5]->enemy_blk_y + enemyArray[firing_col+5]->enemy_height + 1;
+            enemy_missile2.status = ENEMY_MISSILE_ACTIVE;
+        }
+        // if enemy at 2nd and 3rd row is dead, checks the enemy in the 1st row
+        else if (enemyArray[firing_col]->status == ENEMY_ALIVE)
+        {
+            // If alive, the enemy missile position is updated to the center of the enemy
+            enemy_missile2.missile_blk_x = enemyArray[firing_col]->enemy_blk_x + (enemyArray[firing_col]->enemy_width/2);
+            enemy_missile2.missile_blk_y = enemyArray[firing_col]->enemy_blk_y + enemyArray[firing_col]->enemy_height + 1;
+            enemy_missile2.status = ENEMY_MISSILE_ACTIVE;
+        }
+    }
+    // 3rd random missile for level 3
+    if (level == 3) {
+        firing_col = rand() % 5; // selects a random column
+    
+        // first checks if the 3rd row closest to the player is alive
+        if (enemyArray[firing_col+10]->status == ENEMY_ALIVE)
+        {
+            // If alive, the enemy missile position is updated to the center of the enemy
+            enemy_missile3.missile_blk_x = enemyArray[firing_col+10]->enemy_blk_x + (enemyArray[firing_col+10]->enemy_width/2);
+            enemy_missile3.missile_blk_y = enemyArray[firing_col+10]->enemy_blk_y + enemyArray[firing_col+10]->enemy_height + 1;
+            enemy_missile3.status = ENEMY_MISSILE_ACTIVE; // sets the enemy missile as active
+        }
+        // if enemy at 3rd row is dead, checks the enemy in the 2nd row
+        else if (enemyArray[firing_col+5]->status == ENEMY_ALIVE)
+        {
+            // If alive, the enemy missile position is updated to the center of the enemy
+            enemy_missile3.missile_blk_x = enemyArray[firing_col+5]->enemy_blk_x + (enemyArray[firing_col+5]->enemy_width/2);
+            enemy_missile3.missile_blk_y = enemyArray[firing_col+5]->enemy_blk_y + enemyArray[firing_col+5]->enemy_height + 1;
+            enemy_missile3.status = ENEMY_MISSILE_ACTIVE;
+        }
+        // if enemy at 2nd and 3rd row is dead, checks the enemy in the 1st row
+        else if (enemyArray[firing_col]->status == ENEMY_ALIVE)
+        {
+            // If alive, the enemy missile position is updated to the center of the enemy
+            enemy_missile3.missile_blk_x = enemyArray[firing_col]->enemy_blk_x + (enemyArray[firing_col]->enemy_width/2);
+            enemy_missile3.missile_blk_y = enemyArray[firing_col]->enemy_blk_y + enemyArray[firing_col]->enemy_height + 1;
+            enemy_missile3.status = ENEMY_MISSILE_ACTIVE;
+        }
+    } 
 }
 
 // moves the enemy
@@ -702,6 +777,7 @@ void mbedSlave(void const *args) {
     while(1) {
         //while(numPlayers == 1) Thread::yield();
         rx = '0';
+        pc.printf("Slave thread running.\n\r");
         if (secondMbed.readable()) {
             rx = secondMbed.getc();
             pc.printf("rx = %c\n\r", rx);
@@ -709,8 +785,11 @@ void mbedSlave(void const *args) {
             while (!secondMbed.writeable()) wait(0.5);
             secondMbed.putc(rx);
         }
+        Thread::wait(1000);
     }
 }
+*/
+
                 //first_player_ready = true;
                 //second_player_ready = true;
             //    begin_game2 = true;
@@ -744,11 +823,13 @@ void mbedSlave(void const *args) {
 
 // UNCOMMENT THIS THREAD IF FIRST PLAYER AND COMMENT SLAVE THREAD
 // The master mbed device (second player) should uncomment this thread -- Brice
-/*
+
 void mbedMaster(void const *args) {
     char rx;
     while(1) {
+        pc.printf("Master called\n\r");
         while(numPlayers == 1) Thread::yield();
+        pc.printf("Num players is 2.\n\r");
         rx = '0';
         if (!begin_game2) {
             while(!secondMbed.writeable()) {
@@ -762,38 +843,40 @@ void mbedMaster(void const *args) {
             }
             rx = secondMbed.getc();
             pc.printf("rx = %c\n\r", rx);
-            //if (rx == 'S') {
-            //    begin_game2 = true;
-            //    pc.printf("both players ready\n\r");
-            //}
+            if (rx == 'S') {
+                begin_game2 = true;
+                pc.printf("both players ready\n\r");
+            }
+        } else {
+            while (begin_game2) {
+                rx = '0';
+                if (secondMbed.readable()) {
+                    rx = secondMbed.getc();
+                    if (rx == 'W') {
+                        secondMbed.putc(rx);
+                        begin_game2 = false;
+                        two_player_lose = true;
+                    }
+                }
+                if (two_player_win) {
+                    secondMbed.putc('W');
+                    while(!secondMbed.readable()) wait(0.5); // ok to lock up with wait because we don't want to confirm when before anything else. --Brice
+                    rx = secondMbed.getc();
+                    if (rx == 'W') {
+                        begin_game2 = false;
+                    }
+                }
+                Thread::wait(1000);
+            }
         }
-        //} else {
-        //while (begin_game2) {
-        //    rx = '0';
-        //    if (secondMbed.readable()) {
-        //        rx = secondMbed.getc();
-        //        if (rx == 'W') {
-        //            secondMbed.putc(rx);
-        //            begin_game2 = false;
-        //            two_player_lose = true;
-        //        }
-        //    }
-        //    if (two_player_win) {
-        //        secondMbed.putc('W');
-        //        while(!secondMbed.readable()) wait(0.5); // ok to lock up with wait because we don't want to confirm when before anything else. --Brice
-        //        rx = secondMbed.getc();
-        //        if (rx == 'W') {
-        //            begin_game2 = false;
-        //        }
-        //    }
-        //    Thread::wait(1000);
-        //}
-        //Thread::wait(1000);
+        Thread::wait(1000);
     }
 }
-*/
+
+
 
 int main() {
+     //pc.printf("in main");
      IMU.begin();
      if (!IMU.begin()) {
          pc.printf("Failed to communicate with IMU\n\r");
@@ -807,7 +890,7 @@ int main() {
      // Should only have the Slave thread uncommented if second player.
      // Should only have the Master thread uncommented if first player.
      //Thread thread2(mbedSlave); // uncommented if second player -- Brice
-     //Thread thread3(mbedMaster); // uncommented if first player -- Brice
+     Thread thread3(mbedMaster); // uncommented if first player -- Brice
      Thread thread4(ledEffects); // thread added for LED lighting effects -- Brice
      secondMbed.baud(9600);
      uLCD.baudrate(3000000); // set to 3000000 to increase smooth gameplay
@@ -820,7 +903,7 @@ int main() {
     int level_cursor_x_pos = 5; // level cursor x-position
     int level_cursor_y_pos_start = 7; // level cursor y-position
     //int level_cursor_y_pos = 7; // initial level_cursor_y_pos @ start -- Added by Brice for more menu options
-    int level_cursor_y_pos_end = 11; // BOTTOM CURSOR POS -- Added by Brice for more menu options
+    int level_cursor_y_pos_end = 13; // BOTTOM CURSOR POS -- Added by Brice for more menu options
     int gameover_x_pos = 5; // gameover label x-position
     int gameover_y_pos = 5; // gameover label y-position
     int win_x_pos = 2; // congratulations label x-position
@@ -835,7 +918,24 @@ int main() {
     int score = 0;
      
     // Additional globals added for two-player and one-player capabilities (by Brice)
-    
+    char buffer[3] = {0};
+    char c = {0};
+    char *token;
+    int i = 0;
+    int storedTime = 999;
+    SDLock.lock();
+    FILE *sdtime;
+    sdtime=fopen("/sd/besttime.txt","r");
+    if(sdtime==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
+    while ((c != '\n') && (i < 3)) {
+        c = fgetc(sdtime);
+        buffer[i] = c;
+        i++;
+    }
+    fclose(sdtime);
+    SDLock.unlock();
+    token = strtok(buffer, "\n");
+    storedTime = atoi(token); // convert string from file to integer
     // Begin game loop
     while(1)
     {
@@ -856,6 +956,26 @@ int main() {
         //uLCD.locate(title_x_pos,title_y_pos); // "SPACE INVADERS" title position
         //uLCD.printf("SPACE INVADERS"); // Title
         // Implementation of Game Menu
+        
+        //char buffer[3] = {0};
+//        char c = {0};
+//        char *token;
+//        int i = 0;
+//        int storedTime = 999;
+//        SDLock.lock();
+//        FILE *sdtime;
+//        sdtime=fopen("/sd/besttime.txt","r");
+//        if(sdtime==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
+//        while ((c != '\n') && (i < 3)) {
+//            c = fgetc(sdtime);
+//            buffer[i] = c;
+//            i++;
+//        }
+//        fclose(sdtime);
+//        SDLock.unlock();
+//        token = strtok(buffer, "\n");
+//        storedTime = atoi(token); // convert string from file to integer
+        // Implementation of game_menu
         while(game_menu) 
         {
             float accelY = 0.0; // y acceleration
@@ -904,6 +1024,12 @@ int main() {
             
             uLCD.locate(start_label_x_pos,start_label_y_pos + 4);
             uLCD.printf("LEVEL 3");
+            
+            uLCD.locate(start_label_x_pos, start_label_y_pos + 6);
+            uLCD.printf("TWO-PLAYER");
+            
+            uLCD.locate(2,15);
+            uLCD.printf("Best time: %d s", storedTime);
             // if pushbutton is pressed, game menu is exited and game begins
             if(!pb) 
             { 
@@ -917,6 +1043,9 @@ int main() {
                     level = 2;
                 } else if (level_cursor_y_pos == start_label_y_pos + 4) {
                     level = 3;
+                } else if (level_cursor_y_pos == start_label_y_pos + 6) {
+                    numPlayers = 2;
+                    level = 1;
                 }
                 Thread::wait(500); // changed this to Thread::wait ... originally wait(0.5);
             }
@@ -924,6 +1053,7 @@ int main() {
         while(numPlayers != 1 && !begin_game2) Thread::yield(); // added to force wait with two-player and one player not ready. -- added by Brice
         if (numPlayers == 2 && begin_game2) {
             numWins = 0;
+            bestTimer.start();
         } else {
             begin_game = true; // defaults begin_game to true
             
@@ -949,7 +1079,12 @@ int main() {
         int e_blk_x = 0;
         int e_blk_y = 2;
         enemy_missile_init(&enemy_missile, e_blk_x, e_blk_y, WHITE);
-        
+        if (level == 2 || level == 3) {
+            enemy_missile_init(&enemy_missile2, e_blk_x, e_blk_y, WHITE);
+        }
+        if (level == 3) {
+            enemy_missile_init(&enemy_missile3, e_blk_x, e_blk_y, WHITE);
+        }
         // prints lives
         if (level == 1) {
             uLCD.locate(0,0);
@@ -989,10 +1124,16 @@ int main() {
                     && missile.missile_blk_y+1-missile.missile_height <= barrier_1.barrier_blk_y+barrier_1.barrier_height
                     && missile.status == PLAYER_MISSILE_ACTIVE) 
             {
-                check_barrier(&barrier_1, &missile);
+                if (level == 1) {
+                    check_barrier(&barrier_1, &missile);
+                }
                 check_barrier(&barrier_2, &missile);
-                check_barrier(&barrier_3, &missile);
-                check_barrier(&barrier_4, &missile);
+                if (level == 1 || level == 2) {
+                    check_barrier(&barrier_3, &missile);
+                }
+                if (level == 1) {
+                    check_barrier(&barrier_4, &missile);
+                }
             }
             
             // checks if player missile passes y-pos of row1
@@ -1017,20 +1158,88 @@ int main() {
             }
             
             // Random Enemy Fire
-            if (enemy_missile.status == ENEMY_MISSILE_INACTIVE) 
+            if (enemy_missile.status == ENEMY_MISSILE_INACTIVE || enemy_missile2.status == ENEMY_MISSILE_INACTIVE || enemy_missile3.status == ENEMY_MISSILE_INACTIVE) 
             {
                 random_attack_gen();
+                /*
+                if (level == 2 || level == 3) {
+                    random_attack_gen();
+                }
+                if (level == 3) {
+                    random_attack_gen();
+                }
+                */
             }
             
             // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
             if (enemy_missile.missile_blk_y >= barrier_1.barrier_blk_y
                     && enemy_missile.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
             {
-                check_barrier(&barrier_1, &enemy_missile);
+                if (level == 1) {
+                    check_barrier(&barrier_1, &enemy_missile);
+                }
                 check_barrier(&barrier_2, &enemy_missile);
-                check_barrier(&barrier_3, &enemy_missile);
-                check_barrier(&barrier_4, &enemy_missile);
+                if (level == 1 || level == 2) {
+                    check_barrier(&barrier_3, &enemy_missile);
+                }
+                if (level == 1) {
+                    check_barrier(&barrier_4, &enemy_missile);
+                }
             }
+            
+            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
+            // Level 2 missile
+            if (level == 2 || level == 3) {
+                if (enemy_missile2.missile_blk_y >= barrier_1.barrier_blk_y
+                        && enemy_missile2.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
+                {
+                    if (level == 1) {
+                        check_barrier(&barrier_1, &enemy_missile2);
+                    }
+                    check_barrier(&barrier_2, &enemy_missile2);
+                    if (level == 1 || level == 2) {
+                        check_barrier(&barrier_3, &enemy_missile2);
+                    }
+                    if (level == 1) {
+                        check_barrier(&barrier_4, &enemy_missile2);
+                    }
+                }
+            }
+                        // Level 2 missile
+            if (level == 3) {
+                if (enemy_missile3.missile_blk_y >= barrier_1.barrier_blk_y
+                        && enemy_missile3.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
+                {
+                    if (level == 1) {
+                        check_barrier(&barrier_1, &enemy_missile3);
+                    }
+                    check_barrier(&barrier_2, &enemy_missile3);
+                    if (level == 1 || level == 2) {
+                        check_barrier(&barrier_3, &enemy_missile3);
+                    }
+                    if (level == 1) {
+                        check_barrier(&barrier_4, &enemy_missile3);
+                    }
+                }
+            }
+            
+            /*
+            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
+            if (enemy_missile.missile_blk_y >= barrier_1.barrier_blk_y
+                    && enemy_missile.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
+            {
+                if (level == 1) {
+                    check_barrier(&barrier_1, &enemy_missile);
+                }
+                check_barrier(&barrier_2, &enemy_missile);
+                if (level == 1 || level == 2) {
+                    check_barrier(&barrier_3, &enemy_missile);
+                }
+                if (level == 1) {
+                    check_barrier(&barrier_4, &enemy_missile);
+                }
+            }
+            */
             
             // checks if enemy missile passes y-pos of player
             if (enemy_missile.missile_blk_y >= player.player_blk_y
@@ -1039,10 +1248,32 @@ int main() {
                 check_player_hit();
             }
             
-
+            // Level 2 check player hit
+            if (level == 2 || level == 3) {
+                if (enemy_missile2.missile_blk_y >= player.player_blk_y
+                    && enemy_missile2.missile_blk_y <= player.player_blk_y+player.player_height)
+                {
+                    check_player_hit();
+                }
+            }
+            
+            // Level 3 check player hit
+            if (level == 3) {
+                if (enemy_missile3.missile_blk_y >= player.player_blk_y
+                    && enemy_missile3.missile_blk_y <= player.player_blk_y+player.player_height)
+                {
+                    check_player_hit();
+                }
+            }
             update_missile_pos(&missile); // updates player missile position
             update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
-
+            // level 2 missile
+            if (level == 2 || level == 3) {
+                update_enemy_missile_pos(&enemy_missile2);
+            }
+            if (level == 3) {
+                update_enemy_missile_pos(&enemy_missile3);
+            }
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
             // With joystick click, change color of player from GREEN -> BLUE -> PINK -> PURPLE -> YELLOW (and loop).
@@ -1086,13 +1317,13 @@ int main() {
             if ((accelX <= -0.25) && (player.player_blk_x + accelX*5) > 0.0) {
                 player_erase(&player);
                 //player.player_blk_x -= 3;
-                player.player_blk_x += (int)(accelX*5);
+                player.player_blk_x += (int)(accelX*8);
                 player_show(&player);
             //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
             } else if ((accelX >= 0.25) && ((player.player_blk_x + accelX*5) < (128 - player.player_width))) {
                 player_erase(&player);
                 //player.player_blk_x -= 3;
-                player.player_blk_x += (int)(accelX*5);
+                player.player_blk_x += (int)(accelX*8);
                 player_show(&player);
             }
             // Player Fire
@@ -1147,7 +1378,7 @@ int main() {
                 win = true; // sets win to true, for win screen
                 begin_game = false;
                 
-                // displays video clip ????
+                // displays video clip ????. Original intention here is a little obscure.
                 /*
                 uLCD.cls();
                 uLCD.media_init();
@@ -1277,7 +1508,6 @@ int main() {
                 // game play loop
         while(begin_game2) 
         {
-            // updates score
             temp = score;
             score = (15-numOfEnemies)*15;
             
@@ -1290,7 +1520,17 @@ int main() {
             
             // move enemy
             enemy_motion();
-
+            // check barriers for player missile hit
+            if (missile.missile_blk_y+1-missile.missile_height >= barrier_1.barrier_blk_y
+                    && missile.missile_blk_y+1-missile.missile_height <= barrier_1.barrier_blk_y+barrier_1.barrier_height
+                    && missile.status == PLAYER_MISSILE_ACTIVE) 
+            {
+                check_barrier(&barrier_1, &missile);
+                check_barrier(&barrier_2, &missile);
+                check_barrier(&barrier_3, &missile);
+                check_barrier(&barrier_4, &missile);
+            }
+            
             // checks if player missile passes y-pos of row1
             if (missile.missile_blk_y+1-missile.missile_height <= enemy_1.enemy_blk_y
                     && missile.missile_blk_y+1-missile.missile_height >= enemy_1.enemy_blk_y-enemy_1.enemy_height) 
@@ -1318,46 +1558,79 @@ int main() {
                 random_attack_gen();
             }
             
+            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
+            if (enemy_missile.missile_blk_y >= barrier_1.barrier_blk_y
+                    && enemy_missile.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
+            {
+                check_barrier(&barrier_1, &enemy_missile);
+                check_barrier(&barrier_2, &enemy_missile);
+                check_barrier(&barrier_3, &enemy_missile);
+                check_barrier(&barrier_4, &enemy_missile);
+            }
+            
             // checks if enemy missile passes y-pos of player
             if (enemy_missile.missile_blk_y >= player.player_blk_y
                     && enemy_missile.missile_blk_y <= player.player_blk_y+player.player_height)
             {
                 check_player_hit();
             }
+            
 
             update_missile_pos(&missile); // updates player missile position
             update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
 
             // Player Movement checked with navigation switch
-            //if (myNav.left() && ((player.player_blk_x-3) > 0)) 
-            //{
-            //    player_erase(&player);
-            //    player.player_blk_x -= 3;
-            //    player_show(&player);
-            //} 
-            //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width))) 
-            //{
-            //    player_erase(&player);
-            //    player.player_blk_x += 3;
-            //    player_show(&player);
-            //}
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
+            // With joystick click, change color of player from GREEN -> BLUE -> PINK -> PURPLE -> YELLOW (and loop).
+            prevAnalogClick = newAnalogClick;
+            newAnalogClick = stick.button();
+            if (newAnalogClick && !prevAnalogClick) { 
+                if (player.player_color == 0x00FF00) { // if GREEN (start)
+                    player.player_color = 0x0000FF; // BLUE
+                } else if (player.player_color == 0x0000FF) { // if BLUE
+                    player.player_color = 0xFFC0CB; // pink. hot pink: 0xFF69B4
+                } else if (player.player_color == 0xFFC0CB) { // if pink
+                    player.player_color = 0x800080; // Purple: 0x800080. periwinkle purple: 0xCCCCFF
+                } else if (player.player_color == 0x800080) { // if purple
+                    player.player_color = 0xFFFF00; // yellow. metallic gold: 0xD4AF37
+                } else if (player.player_color == 0xFFFF00) { // if yellow
+                    player.player_color = 0x00FF00; // set back to GREEN
+                }
+            }
+            // Control Player with Analog Joystick -- Brice    
             float stickDist = stick.xAxis();
-            if ((stickDist < 0.0) && (player.player_blk_x + stickDist > 0.0))
-            {
+            if ((stickDist < 0.0) && (player.player_blk_x + stickDist*3 > 0.0)){
                 player_erase(&player);
                 //player.player_blk_x -= 3;
-                player.player_blk_x += (int)(stickDist);
+                player.player_blk_x += (int)(stickDist*3);
                 player_show(&player);
             } 
             //else if (myNav.right() && ((player.player_blk_x+3) < (128-player.player_width)))
-            else if ((stickDist > 0.0) && ((player.player_blk_x + stickDist) < (128 - player.player_width))) 
+            else if ((stickDist > 0.0) && ((player.player_blk_x + stickDist*3) < (128 - player.player_width))) 
             {
                 player_erase(&player);
-                player.player_blk_x += (int)(stickDist);
+                player.player_blk_x += (int)(stickDist*3);
                 player_show(&player);
             }
-
+            // Control Player with IMU -- Brice
+            float accelX = 0.0; // x acceleration
+            if (IMU.accelAvailable()) {
+                IMU.readAccel();
+                accelX = IMU.calcAccel(IMU.ax);
+                //pc.printf("Calc Accel: %f", accelY);
+            }
+            if ((accelX <= -0.25) && (player.player_blk_x + accelX*5) > 0.0) {
+                player_erase(&player);
+                //player.player_blk_x -= 3;
+                player.player_blk_x += (int)(accelX*8);
+                player_show(&player);
+            //} else if (myNav.up() && level_cursor_y_pos > level_cursor_y_pos_start) {
+            } else if ((accelX >= 0.25) && ((player.player_blk_x + accelX*5) < (128 - player.player_width))) {
+                player_erase(&player);
+                //player.player_blk_x -= 3;
+                player.player_blk_x += (int)(accelX*8);
+                player_show(&player);
+            }
             // Player Fire
             if (pb == 0 && missile.status == PLAYER_MISSILE_INACTIVE) 
             {
@@ -1369,132 +1642,188 @@ int main() {
             // checks if player destroyed all enemies
             if (numOfEnemies == 0)
             {
+                // idea for best-time reading and updating: https://os.mbed.com/questions/75718/i-want-to-assign-int-value-saved-in-sd-t/
+                int time = bestTimer.read();
+                bestTimer.stop();
+                bestTimer.reset();
                 uLCD.cls();
-                
-                win = true; // sets win to true, for win screen
-                numWins += 1;
-                if (numWins == 3) {
-                    //begin_game2 = false;  // Allow the mbed communication thread to change the begin_game2 bool to false after letting other mbed know.
-                    two_player_win = true;
+                char buffer[3] = {0};
+                char c = {0};
+                char *token;
+                int i = 0;
+                int storedTime = 999;
+                SDLock.lock();
+                FILE *sdtime;
+                sdtime=fopen("/sd/besttime.txt","r");
+                if(sdtime==NULL) pc.printf("file open error!\n\n\r"); // added this for open error check
+                while ((c != '\n') && (i < 3)) {
+                    c = fgetc(sdtime);
+                    buffer[i] = c;
+                    i++;
                 }
+                token = strtok(buffer, "\n");
+                storedTime = atoi(token); // convert string from file to integer
+                fclose(sdtime);
+                if (time < storedTime) {
+                    uLCD.locate(2,10);
+                    uLCD.printf("NEW BEST TIME!");
+                    uLCD.locate(2,11);
+                    uLCD.printf("%d seconds!", time);
+                    sdtime = fopen("/sd/besttime.txt", "w");
+                    if (sdtime != NULL) {
+                        fprintf(sdtime, "%d\r\n", time);
+                        fclose(sdtime);
+                    } else {
+                        pc.printf("write: failed!\r\n");
+                    }
+                }
+                SDLock.unlock();
                 
-                // displays video clip ???
+                two_player_win = true; // sets win to true, for win screen
+                win = true;
+                //begin_game = false;
+                
+                // displays video clip ????
                 /*
                 uLCD.cls();
                 uLCD.media_init();
                 uLCD.set_sector_address(0x00, 0x00);
                 uLCD.display_video(0,0);
-                Thread::wait(1000); // changed from wait(1)
-                */ 
+                Thread::wait(1000); // changed from wait(1) to Thread::wait(1000) since we're using threads -- Brice
+                */
                 
-                uLCD.cls();
-                if (!two_player_win) {
-                    // prints "Number of Wins" on uLCD -- Brice. A step towards victory, not a complete victory.    
-                    uLCD.locate(win_x_pos,win_y_pos);
-                    uLCD.printf("YOU HAVE %d WINS!", numWins);
+                //uLCD.cls();
                 
-                    // prints "Continue?" and "Press pb..." Keep trying to get points --Brice.
-                    uLCD.locate(startover_x_pos, startover_y_pos);
-                    uLCD.printf("Continue?");
-                    uLCD.locate(startover_x_pos, startover_y_pos+1);
-                    uLCD.printf("Press pb...");
+                // prints "Congratulations" on uLCD    
+                uLCD.locate(win_x_pos,win_y_pos);
+                uLCD.printf("CONGRATULATIONS!");
                 
-                    // waits at win screen until pushbutton is pressed
-                    while (win)
+                // prints "Play Again?" and "Press pb..."
+                uLCD.locate(startover_x_pos, startover_y_pos);
+                uLCD.printf("Play again?");
+                uLCD.locate(startover_x_pos, startover_y_pos+1);
+                uLCD.printf("Press pb...");
+                
+                // waits at win screen until pushbutton is pressed
+                while (two_player_win)
+                {
+                    // if pb is pressed, reset game to start menu
+                    if (!pb)
                     {
-                        // if pb is pressed, reset game to start menu
-                        if (!pb)
-                        {
-                            win = false;
-                            Thread::wait(500); // changed from wait(0.5) since we have threads -- Brice
-                        }
+                        win = false;
+                        two_player_win = false;
+                        begin_game2 = false;
+                        numPlayers = 1;
+                        game_menu = true;
+                        Thread::wait(500); // changed from wait(0.5) to Thread::wait(500) since we're using threads
                     }
-                } else {
-                    // prints CONGRATULATIONS! since player has won. --Brice 
-                    uLCD.locate(win_x_pos,win_y_pos);
-                    uLCD.printf("CONGRATULATIONS!"); 
-                
-                    // prints "Return to menu?" and "Press pb..." --Brice.
-                    uLCD.locate(startover_x_pos, startover_y_pos);
-                    uLCD.printf("Return to menu?");
-                    uLCD.locate(startover_x_pos, startover_y_pos+1);
-                    uLCD.printf("Press pb...");
-                
-                    // waits at win screen until pushbutton is pressed
-                    while (two_player_win)
-                    {
+                }/*
+                REMOVED THIS AND MADE THE WINNER THE FIRST TO 1 WIN
+                if (numWins == 3) {
+                    two_player_win = true;
+                    while(two_player_win) {
                         // if pb is pressed, reset game to start menu
-                        if (!pb)
-                        {
-                            two_player_win = false; // close win -- Brice
-                            game_menu = true; // go back to menu -- Brice
-                            Thread::wait(500); // changed from wait(0.5) since we have threads -- Brice
-                        }
-                    }
+                        Thread::wait(2000);
+                        uLCD.locate(win_x_pos,win_y_pos);
+                        uLCD.printf("CONGRATULATIONS!");
+                
+                        // prints "Play Again?" and "Press pb..."
+                        uLCD.locate(startover_x_pos, startover_y_pos);
+                        uLCD.printf("Play Again?");
+                        uLCD.locate(startover_x_pos, startover_y_pos+1);
+                        uLCD.printf("Press pb...");
+                            if (!pb)
+                            {
+                                two_player_win = false;
+                                begin_game2 = false;
+                                game_menu = true;
+                                Thread::wait(500); // changed from wait(0.5) to Thread::wait(500) since we're using threads
+                            }
+                    }   
                 }
+                */
+                
             }
-            
+            int prevColor;
             // checks if player was hit
             if (hit_player)
             {
                 // updates lives
-                lives1 -= 1;
-                Thread::wait(500); // changed from wait(0.5) since we're using threads --Brice
-                hit_player = 0;
-                player_show(&player);
-                player.status = PLAYER_ALIVE;
+                if (level == 1) {
+                    lives1 -= 1;
+                    prevColor = player.player_color;
+                    player_erase(&player);
+                    player.player_color = 0xFF0000; // briefly flash the player red.
+                    player_show(&player);
+                    Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    player_erase(&player);
+                    player.player_color = prevColor; // briefly flash the player red.
+                    player_show(&player);
+                    hit_player = 0; 
+                    player_show(&player);
+                    player.status = PLAYER_ALIVE;
                 
                 // prints updated lives number
-                uLCD.locate(0,0);
-                uLCD.printf("Lives:%i", lives1);
+                    uLCD.locate(0,0);
+                    uLCD.printf("Lives:%i", lives1);
+                } else if (level == 2) {
+                    lives2 -= 1;
+                    prevColor = player.player_color;
+                    player_erase(&player);
+                    player.player_color = 0xFF0000; // briefly flash the player red.
+                    player_show(&player);
+                    Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    player_erase(&player);
+                    player.player_color = prevColor; // briefly flash the player red.
+                    player_show(&player);
+                    //Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    hit_player = 0;
+                    player_show(&player);
+                    player.status = PLAYER_ALIVE;
+                
+                // prints updated lives number
+                    uLCD.locate(0,0);
+                    uLCD.printf("Lives:%i", lives2);
+                } else if (level == 3) {
+                    lives3 -= 1;
+                    prevColor = player.player_color;
+                    player_erase(&player);
+                    player.player_color = 0xFF0000; // briefly flash the player red.
+                    player_show(&player);
+                    Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    player_erase(&player);
+                    player.player_color = prevColor; // briefly flash the player red.
+                    player_show(&player);
+                    //Thread::wait(500); // changed from wait(0.5) to Thread::wait since we're using threads -- Brice
+                    hit_player = 0;
+                    player_show(&player);
+                    player.status = PLAYER_ALIVE;
+                
+                // prints updated lives number
+                    uLCD.locate(0,0);
+                    uLCD.printf("Lives:%i", lives3);
+                }
             }   
             
             // if player loses all lives or enemy reaches the player
-            if (lose || lives1 == 0)
+            if (lose || lives1 == 0 || lives2 == 0 || lives3 == 0)
             {    
-                //begin_game = false; // set to false to end game -- not needed in two-player, just keep playing until a player reaches 3 wins -- Brice
+                //begin_game = false; // set to false to end game
+                lives1 = 3;
                 uLCD.cls();
                 
+                two_player_lose = true;
                 gameover = true; // set to go to display gameover screen
-                
-                // prints "GAMEOVER" to uLCD
-                uLCD.locate(gameover_x_pos, gameover_y_pos);
-                uLCD.printf("YOU DIED");
-                Thread::wait(1000); // changed from wait(1) since we have multiple threads -- Brice
-                
-                // prints "Play Again?" and "Press pb..."
-                uLCD.locate(startover_x_pos, startover_y_pos);
-                uLCD.printf("Keep trying!");
-                uLCD.locate(startover_x_pos, startover_y_pos+1);
-                uLCD.printf("Press pb...");
-                
-                // stays in gameover screen until pb is pressed
-                while (gameover)
-                {
-                    // if pb is pressed, game is reset to the game menu screen
-                    if (!pb)
-                    {
-                        gameover = false;
-                        //game_menu = true; // removed since other player must win three times for game to be over.
-                        Thread::wait(500); // changed from wait(0.5) since we have threads.
-                    }
-                }
-            }
-            if (two_player_lose)
-            {    
-                begin_game2 = false; // set to false to end game. End game since other player won.
-                uLCD.cls();
-                
-                gameover = true; // set to go to display gameover screen
+                numPlayers = 1;
                 
                 // prints "GAMEOVER" to uLCD
                 uLCD.locate(gameover_x_pos, gameover_y_pos);
                 uLCD.printf("GAMEOVER");
-                Thread::wait(1000); // thread wait since we have multiple threads -- Brice
+                Thread::wait(1000); // changed from wait(1) to thread::wait since we're using threads -- Brice
                 
-                // prints "Return to menu?" and "Press pb..."
+                // prints "Play Again?" and "Press pb..."
                 uLCD.locate(startover_x_pos, startover_y_pos);
-                uLCD.printf("Return to menu?"); 
+                uLCD.printf("Play again?");
                 uLCD.locate(startover_x_pos, startover_y_pos+1);
                 uLCD.printf("Press pb...");
                 
@@ -1505,13 +1834,41 @@ int main() {
                     if (!pb)
                     {
                         gameover = false;
-                        two_player_lose = false; // end lose.
-                        game_menu = true; // removed since other player must win three times for game to be over.
-                        Thread::wait(500); // changed from wait(0.5) since we have threads.
+                        two_player_lose = false;
+                        game_menu = true;
+                        begin_game2 = false;
+                        numPlayers = 1;
+                        //game_menu = true;
+                        Thread::wait(500); // changed wait(0.5) to Thread::wait since we're using threads -- Brice
                     }
                 }
             }
-
+            if (two_player_lose) {
+                uLCD.cls();
+                numPlayers = 1;
+                Thread::wait(2000);
+                uLCD.locate(gameover_x_pos, gameover_y_pos);
+                uLCD.printf("You lost!");
+                Thread::wait(1000); // changed from wait(1) to thread::wait since we're using threads -- Brice
+                
+                // prints "Play Again?" and "Press pb..."
+                uLCD.locate(startover_x_pos, startover_y_pos);
+                uLCD.printf("Continue?");
+                uLCD.locate(startover_x_pos, startover_y_pos+1);
+                uLCD.printf("Press pb...");
+            }
+            while(two_player_lose) {
+                //uLCD.cls();
+                
+                if (!pb)
+                    {
+                        two_player_lose = false;
+                        game_menu = true;
+                        begin_game2 = false;
+                        numPlayers = 1;
+                        Thread::wait(500); // changed wait(0.5) to Thread::wait since we're using threads -- Brice
+                    }
+                }
+            }
         }
     }
-}
