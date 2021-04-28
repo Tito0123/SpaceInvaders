@@ -140,8 +140,7 @@ player_t player;
 // Intialize global player and enemy missile
 missile_t missile; // player missile
 missile_t enemy_missile; // enemy missile
-missile_t enemy_missile2; // first extra enemy missile for level 2 (medium difficulty)
-missile_t enemy_missile3; // second extra enemy missile for level 3 (hard difficulty) -- 3 missiles out at one time.
+//missile_t enemy_missile2; // first extra enemy missile for level 2 (medium difficulty)
 
 // Array of enemy objects
 enemy_t * enemyArray[15];
@@ -316,17 +315,8 @@ void check_hit_enemy_row3()
 
 // Checks if player is hit
 void check_player_hit()
-{   
-    if (level == 1) {
-        // checks if the missile hits the player and returns 1 if hit, 0 if not hit for level 3
-        hit_player = check_player(&player, &enemy_missile);
-    } else if (level == 2) {
-        // checks if the missile hits the player and returns 1 if hit, 0 if not hit for level 3
-        hit_player = (check_player(&player, &enemy_missile) || check_player(&player, &enemy_missile2));
-    } else if (level == 3) {
-        // checks if the missile hits the player and returns 1 if hit, 0 if not hit for level 3
-        hit_player = (check_player(&player, &enemy_missile) || check_player(&player, &enemy_missile2) || check_player(&player, &enemy_missile3));
-    }
+{    
+    hit_player = check_player(&player, &enemy_missile); // checks if the missile hits the player and returns 1 if hit, 0 if not hit
 }
 
 // Randomly selects an enemy to fire and updates the position of where the missile will fire from
@@ -358,64 +348,6 @@ void random_attack_gen()
         enemy_missile.missile_blk_y = enemyArray[firing_col]->enemy_blk_y + enemyArray[firing_col]->enemy_height + 1;
         enemy_missile.status = ENEMY_MISSILE_ACTIVE;
     }
-    // second random missile for level 2   
-    if (level == 2 || level == 3) {
-        firing_col = rand() % 5; // selects a random column
-    
-        // first checks if the 3rd row closest to the player is alive
-        if (enemyArray[firing_col+10]->status == ENEMY_ALIVE)
-        {
-            // If alive, the enemy missile position is updated to the center of the enemy
-            enemy_missile2.missile_blk_x = enemyArray[firing_col+10]->enemy_blk_x + (enemyArray[firing_col+10]->enemy_width/2);
-            enemy_missile2.missile_blk_y = enemyArray[firing_col+10]->enemy_blk_y + enemyArray[firing_col+10]->enemy_height + 1;
-            enemy_missile2.status = ENEMY_MISSILE_ACTIVE; // sets the enemy missile as active
-        }
-        // if enemy at 3rd row is dead, checks the enemy in the 2nd row
-        else if (enemyArray[firing_col+5]->status == ENEMY_ALIVE)
-        {
-            // If alive, the enemy missile position is updated to the center of the enemy
-            enemy_missile2.missile_blk_x = enemyArray[firing_col+5]->enemy_blk_x + (enemyArray[firing_col+5]->enemy_width/2);
-            enemy_missile2.missile_blk_y = enemyArray[firing_col+5]->enemy_blk_y + enemyArray[firing_col+5]->enemy_height + 1;
-            enemy_missile2.status = ENEMY_MISSILE_ACTIVE;
-        }
-        // if enemy at 2nd and 3rd row is dead, checks the enemy in the 1st row
-        else if (enemyArray[firing_col]->status == ENEMY_ALIVE)
-        {
-            // If alive, the enemy missile position is updated to the center of the enemy
-            enemy_missile2.missile_blk_x = enemyArray[firing_col]->enemy_blk_x + (enemyArray[firing_col]->enemy_width/2);
-            enemy_missile2.missile_blk_y = enemyArray[firing_col]->enemy_blk_y + enemyArray[firing_col]->enemy_height + 1;
-            enemy_missile2.status = ENEMY_MISSILE_ACTIVE;
-        }
-    }
-    // 3rd random missile for level 3
-    if (level == 3) {
-        firing_col = rand() % 5; // selects a random column
-    
-        // first checks if the 3rd row closest to the player is alive
-        if (enemyArray[firing_col+10]->status == ENEMY_ALIVE)
-        {
-            // If alive, the enemy missile position is updated to the center of the enemy
-            enemy_missile3.missile_blk_x = enemyArray[firing_col+10]->enemy_blk_x + (enemyArray[firing_col+10]->enemy_width/2);
-            enemy_missile3.missile_blk_y = enemyArray[firing_col+10]->enemy_blk_y + enemyArray[firing_col+10]->enemy_height + 1;
-            enemy_missile3.status = ENEMY_MISSILE_ACTIVE; // sets the enemy missile as active
-        }
-        // if enemy at 3rd row is dead, checks the enemy in the 2nd row
-        else if (enemyArray[firing_col+5]->status == ENEMY_ALIVE)
-        {
-            // If alive, the enemy missile position is updated to the center of the enemy
-            enemy_missile3.missile_blk_x = enemyArray[firing_col+5]->enemy_blk_x + (enemyArray[firing_col+5]->enemy_width/2);
-            enemy_missile3.missile_blk_y = enemyArray[firing_col+5]->enemy_blk_y + enemyArray[firing_col+5]->enemy_height + 1;
-            enemy_missile3.status = ENEMY_MISSILE_ACTIVE;
-        }
-        // if enemy at 2nd and 3rd row is dead, checks the enemy in the 1st row
-        else if (enemyArray[firing_col]->status == ENEMY_ALIVE)
-        {
-            // If alive, the enemy missile position is updated to the center of the enemy
-            enemy_missile3.missile_blk_x = enemyArray[firing_col]->enemy_blk_x + (enemyArray[firing_col]->enemy_width/2);
-            enemy_missile3.missile_blk_y = enemyArray[firing_col]->enemy_blk_y + enemyArray[firing_col]->enemy_height + 1;
-            enemy_missile3.status = ENEMY_MISSILE_ACTIVE;
-        }
-    } 
 }
 
 // moves the enemy
@@ -1079,12 +1011,7 @@ int main() {
         int e_blk_x = 0;
         int e_blk_y = 2;
         enemy_missile_init(&enemy_missile, e_blk_x, e_blk_y, WHITE);
-        if (level == 2 || level == 3) {
-            enemy_missile_init(&enemy_missile2, e_blk_x, e_blk_y, WHITE);
-        }
-        if (level == 3) {
-            enemy_missile_init(&enemy_missile3, e_blk_x, e_blk_y, WHITE);
-        }
+        
         // prints lives
         if (level == 1) {
             uLCD.locate(0,0);
@@ -1158,11 +1085,10 @@ int main() {
             }
             
             // Random Enemy Fire
-            if (enemy_missile.status == ENEMY_MISSILE_INACTIVE || enemy_missile2.status == ENEMY_MISSILE_INACTIVE || enemy_missile3.status == ENEMY_MISSILE_INACTIVE) 
+            if (enemy_missile.status == ENEMY_MISSILE_INACTIVE) 
             {
                 random_attack_gen();
-                /*
-                if (level == 2 || level == 3) {
+               /* if (level == 2 || level == 3) {
                     random_attack_gen();
                 }
                 if (level == 3) {
@@ -1187,60 +1113,6 @@ int main() {
                 }
             }
             
-            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
-            // Level 2 missile
-            if (level == 2 || level == 3) {
-                if (enemy_missile2.missile_blk_y >= barrier_1.barrier_blk_y
-                        && enemy_missile2.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
-                {
-                    if (level == 1) {
-                        check_barrier(&barrier_1, &enemy_missile2);
-                    }
-                    check_barrier(&barrier_2, &enemy_missile2);
-                    if (level == 1 || level == 2) {
-                        check_barrier(&barrier_3, &enemy_missile2);
-                    }
-                    if (level == 1) {
-                        check_barrier(&barrier_4, &enemy_missile2);
-                    }
-                }
-            }
-                        // Level 2 missile
-            if (level == 3) {
-                if (enemy_missile3.missile_blk_y >= barrier_1.barrier_blk_y
-                        && enemy_missile3.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
-                {
-                    if (level == 1) {
-                        check_barrier(&barrier_1, &enemy_missile3);
-                    }
-                    check_barrier(&barrier_2, &enemy_missile3);
-                    if (level == 1 || level == 2) {
-                        check_barrier(&barrier_3, &enemy_missile3);
-                    }
-                    if (level == 1) {
-                        check_barrier(&barrier_4, &enemy_missile3);
-                    }
-                }
-            }
-            
-            /*
-            // check if enemy missile passes the y-pos of the barrier and updates the barriers if they are hit.
-            if (enemy_missile.missile_blk_y >= barrier_1.barrier_blk_y
-                    && enemy_missile.missile_blk_y <= barrier_1.barrier_blk_y+barrier_1.barrier_height)
-            {
-                if (level == 1) {
-                    check_barrier(&barrier_1, &enemy_missile);
-                }
-                check_barrier(&barrier_2, &enemy_missile);
-                if (level == 1 || level == 2) {
-                    check_barrier(&barrier_3, &enemy_missile);
-                }
-                if (level == 1) {
-                    check_barrier(&barrier_4, &enemy_missile);
-                }
-            }
-            */
-            
             // checks if enemy missile passes y-pos of player
             if (enemy_missile.missile_blk_y >= player.player_blk_y
                     && enemy_missile.missile_blk_y <= player.player_blk_y+player.player_height)
@@ -1248,32 +1120,10 @@ int main() {
                 check_player_hit();
             }
             
-            // Level 2 check player hit
-            if (level == 2 || level == 3) {
-                if (enemy_missile2.missile_blk_y >= player.player_blk_y
-                    && enemy_missile2.missile_blk_y <= player.player_blk_y+player.player_height)
-                {
-                    check_player_hit();
-                }
-            }
-            
-            // Level 3 check player hit
-            if (level == 3) {
-                if (enemy_missile3.missile_blk_y >= player.player_blk_y
-                    && enemy_missile3.missile_blk_y <= player.player_blk_y+player.player_height)
-                {
-                    check_player_hit();
-                }
-            }
+
             update_missile_pos(&missile); // updates player missile position
             update_enemy_missile_pos(&enemy_missile); // updates enemy missile position
-            // level 2 missile
-            if (level == 2 || level == 3) {
-                update_enemy_missile_pos(&enemy_missile2);
-            }
-            if (level == 3) {
-                update_enemy_missile_pos(&enemy_missile3);
-            }
+
             // Player Movement checked with navigation switch
             //if (myNav.left() && ((player.player_blk_x-3) > 0))
             // With joystick click, change color of player from GREEN -> BLUE -> PINK -> PURPLE -> YELLOW (and loop).
